@@ -1,0 +1,8 @@
+# Gitleaks - Detección de secretos
+# Documentación: https://github.com/gitleaks/gitleaks
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Archivos permitidos"
+paths = [".env.example"]

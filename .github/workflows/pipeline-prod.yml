@@ -1,0 +1,16 @@
+# Pipeline CI/CD - Ambiente Prod
+# Trigger: tag v*.*.* + aprobación manual en GitHub Environment "production"
+# Ver plan.md FASE 5 para detalle completo
+name: Pipeline Prod
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+jobs:
+  # TODO: implementar en FASE 5
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Pipeline Prod - pendiente implementación FASE 5"
