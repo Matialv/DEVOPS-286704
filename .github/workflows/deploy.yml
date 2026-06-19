@@ -1,0 +1,211 @@
+name: Deploy Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente a desplegar"
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+
+env:
+  ENVIRONMENT: "${{ github.event.inputs.environment || 'dev' }}"
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. DETECCIÓN DE SECRETOS
+  # ─────────────────────────────────────────────
+  secret-scan:
+    name: Secret Detection (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-path: security/.gitleaks.toml
+
+  # ─────────────────────────────────────────────
+  # 2. SAST - ANÁLISIS ESTÁTICO DE CÓDIGO
+  # ─────────────────────────────────────────────
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    needs: secret-scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep - Go (catalog, orders)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/golang
+            p/owasp-top-ten
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Run Semgrep - Python (cart)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/python
+            p/bandit
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Run Semgrep - TypeScript (checkout, ui, admin)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/typescript
+            p/nodejs
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  # ─────────────────────────────────────────────
+  # 3. SCA - ANÁLISIS DE DEPENDENCIAS
+  # ─────────────────────────────────────────────
+  sca:
+    name: SCA - Dependency Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: secret-scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy - Scan filesystem (dependencias)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: security/.trivyignore
+          format: sarif
+          output: trivy-fs.sarif
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+
+  # ─────────────────────────────────────────────
+  # 4. BUILD DE IMÁGENES
+  # ─────────────────────────────────────────────
+  build:
+    name: Build & Scan Images
+    runs-on: ubuntu-latest
+    needs: [sast, sca]
+    strategy:
+      matrix:
+        service: [catalog, cart, checkout, orders, ui, admin]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ env.ENVIRONMENT }}-${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG \
+            -t $ECR_REGISTRY/retailstore-${{ matrix.service }}:latest \
+            src/${{ matrix.service }}/
+
+      - name: Trivy - Scan image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ env.ENVIRONMENT }}-${{ github.sha }}"
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: security/.trivyignore
+
+      - name: Push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ env.ENVIRONMENT }}-${{ github.sha }}
+        run: |
+          docker push $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/retailstore-${{ matrix.service }}:latest
+
+  # ─────────────────────────────────────────────
+  # 5. DEPLOY CON TERRAFORM
+  # ─────────────────────────────────────────────
+  deploy:
+    name: Deploy to ${{ needs.setup-env.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: build
+    environment: "${{ env.ENVIRONMENT }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
+        run: terraform plan -var-file="${{ env.ENVIRONMENT }}.tfvars" -out=tfplan
+
+      - name: Manual Approval (solo prod)
+        if: env.ENVIRONMENT == 'prod'
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: ${{ vars.PROD_APPROVERS }}
+          minimum-approvals: 1
+
+      - name: Terraform Apply
+        working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Smoke Test
+        run: |
+          echo "Verificando endpoints del ambiente ${{ env.ENVIRONMENT }}..."
+          # TODO: reemplazar con el ALB URL real del output de terraform
+          # curl -f http://<ALB_URL>/health

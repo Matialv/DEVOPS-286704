@@ -1,0 +1,5 @@
+# Trivy - CVEs ignorados con justificación documentada
+# Formato: CVE-XXXX-XXXXX  # Justificación
+#
+# Ejemplo:
+# CVE-2023-12345  # Falso positivo, no afecta al path de código utilizado

@@ -1,0 +1,43 @@
+# Semgrep - Configuración SAST
+# Documentación: https://semgrep.dev/docs
+# Ejecutar: semgrep --config security/semgrep.yml --error
+
+rules:
+  # Go - catalog y orders
+  - id: go-hardcoded-credentials
+    patterns:
+      - pattern: |
+          $VAR = "..."
+    pattern-filter:
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: '(?i)(password|secret|token|key|pwd)'
+    message: "Posible credencial hardcodeada en Go: $VAR"
+    languages: [go]
+    severity: ERROR
+
+  # Python - cart
+  - id: python-hardcoded-credentials
+    patterns:
+      - pattern: |
+          $VAR = "..."
+    pattern-filter:
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: '(?i)(password|secret|token|key|pwd)'
+    message: "Posible credencial hardcodeada en Python: $VAR"
+    languages: [python]
+    severity: ERROR
+
+  # TypeScript - checkout, ui, admin
+  - id: ts-hardcoded-credentials
+    patterns:
+      - pattern: |
+          const $VAR = "..."
+    pattern-filter:
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: '(?i)(password|secret|token|key|pwd)'
+    message: "Posible credencial hardcodeada en TypeScript: $VAR"
+    languages: [typescript]
+    severity: ERROR
