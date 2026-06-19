@@ -1,0 +1,2 @@
+# DEVOPS-286704
+Obligatorio de DEVOPS ATI / ORT 2026
