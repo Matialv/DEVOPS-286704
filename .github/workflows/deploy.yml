@@ -89,6 +89,7 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep.sarif
+          token: ${{ secrets.DEVOPS_TOKEN }}
 
   # ─────────────────────────────────────────────
   # 3. SCA - ANÁLISIS DE DEPENDENCIAS
@@ -133,6 +134,7 @@ jobs:
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
+          token: ${{ secrets.DEVOPS_TOKEN }}
 
   # ─────────────────────────────────────────────
   # 4. BUILD DE IMÁGENES
