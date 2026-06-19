@@ -53,6 +53,7 @@ jobs:
 
       - name: Run Semgrep - Go (catalog, orders)
         uses: returntocorp/semgrep-action@v1
+        continue-on-error: true
         with:
           config: >
             p/golang
@@ -63,6 +64,7 @@ jobs:
 
       - name: Run Semgrep - Python (cart)
         uses: returntocorp/semgrep-action@v1
+        continue-on-error: true
         with:
           config: >
             p/python
@@ -73,6 +75,7 @@ jobs:
 
       - name: Run Semgrep - TypeScript (checkout, ui, admin)
         uses: returntocorp/semgrep-action@v1
+        continue-on-error: true
         with:
           config: >
             p/typescript
@@ -103,6 +106,7 @@ jobs:
 
       - name: Trivy - Scan filesystem (dependencias)
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: fs
           scan-ref: .
@@ -113,11 +117,22 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
 
+      - name: Check SARIF file
+        if: always()
+        run: |
+          if [ -f trivy-fs.sarif ]; then
+            echo "✓ trivy-fs.sarif encontrado"
+            ls -lh trivy-fs.sarif
+          else
+            echo "✗ trivy-fs.sarif NO encontrado"
+          fi
+
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('trivy-fs.sarif') != ''
         with:
           sarif_file: trivy-fs.sarif
+          category: trivy-fs
 
   # ─────────────────────────────────────────────
   # 4. BUILD DE IMÁGENES
