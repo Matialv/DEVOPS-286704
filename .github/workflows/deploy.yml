@@ -84,6 +84,7 @@ jobs:
 
   # ─────────────────────────────────────────────
   # 3. SCA - ANÁLISIS DE DEPENDENCIAS
+  
   # ─────────────────────────────────────────────
   sca:
     name: SCA - Dependency Scan (Trivy)
