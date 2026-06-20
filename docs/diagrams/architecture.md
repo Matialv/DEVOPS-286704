@@ -1,36 +1,59 @@
 # Arquitectura AWS — RetailStore
 
 ## Diagrama de Infraestructura
-
 ```mermaid
-graph TB
-    %% ── Usuarios ──────────────────────────────────────────────────────
-    USER([🌐 Usuarios])
-    ADMIN_USER([🔧 Administradores])
+graph LR
+    %% ── Estilos Generales ─────────────────────────────────────────────
+    classDef default fill:#F8F9FA,stroke:#D2D6DC,stroke-width:1px,color:#232F3E;
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:1.5px,color:#FFFFFF,font-weight:bold
+    classDef ecs fill:#FF6B35,stroke:#232F3E,stroke-width:1.5px,color:#FFFFFF,font-weight:bold
+    classDef data fill:#3F8624,stroke:#232F3E,stroke-width:1.5px,color:#FFFFFF,font-weight:bold
+    classDef security fill:#DD344C,stroke:#232F3E,stroke-width:1.5px,color:#FFFFFF,font-weight:bold
+    classDef cicd fill:#4A90D9,stroke:#232F3E,stroke-width:1.5px,color:#FFFFFF,font-weight:bold
+    classDef infra fill:#7D4E9E,stroke:#232F3E,stroke-width:1.5px,color:#FFFFFF,font-weight:bold
 
-    %% ── Internet & Route 53 ───────────────────────────────────────────
-    subgraph INTERNET["Internet"]
-        USER
-        ADMIN_USER
+    %% ── Internet ─────────────────────────────────────────────────────
+    subgraph INTERNET["🌐 Internet"]
+        USER([🌐 Usuarios])
+        ADMIN_USER([🔧 Administradores])
     end
 
-    %% ── AWS ──────────────────────────────────────────────────────────
+    %% ── AWS Cloud ────────────────────────────────────────────────────
     subgraph AWS["☁️ AWS (us-east-1)"]
 
-        %% ── VPC ──────────────────────────────────────────────────────
-        subgraph VPC["VPC  10.x.0.0/16"]
+        %% ── Herramientas de Despliegue ───────────────────────────────
+        subgraph CICD["🚀 Automatización CI/CD"]
+            GH["🔧 GitHub Actions\ndeploy.yml"]
+            TF["🏗️ Terraform IaC"]
+        end
 
-            %% ── Subnets Públicas ──────────────────────────────────────
+        subgraph TF_STATE["📂 Estado de Backend IaC"]
+            S3[("🪣 S3\nTerraform State")]
+            DDB[("🔒 DynamoDB\nState Lock")]
+        end
+
+        %% ── Servicios de Plataforma Centralizados ────────────────────
+        subgraph PLATFORM["⚙️ Servicios AWS Administrados"]
+            ECR["📦 ECR\n6 repositorios"]
+            SM["🔐 Secrets Manager\nDB credentials"]
+            CW["📊 CloudWatch\nLogs + Metrics"]
+            SNS["📧 SNS\nAlertas de seguridad"]
+            LAMBDA["λ Lambda\necr-scan-notifier"]
+            EB["⚡ EventBridge\nECR Scan Complete"]
+        end
+
+        %% ── Red Principal (VPC) ──────────────────────────────────────
+        subgraph VPC["🌐 VPC (10.x.0.0/16)"]
+
             subgraph PUB["Subnets Públicas (AZ-1 / AZ-2)"]
+                IGW["🌐 Internet Gateway"]
                 ALB["🔀 Application Load Balancer\nHTTP :80"]
                 NAT["🔁 NAT Gateway"]
-                IGW["🌐 Internet Gateway"]
             end
 
-            %% ── Subnets Privadas ──────────────────────────────────────
             subgraph PRIV["Subnets Privadas (AZ-1 / AZ-2)"]
 
-                subgraph ECS["🐳 ECS Cluster — Fargate"]
+                subgraph ECS["🐳 ECS Cluster — AWS Fargate"]
                     SVC_UI["ui\nExpress :3000"]
                     SVC_ADMIN["admin\nExpress :3001"]
                     SVC_CATALOG["catalog\nGo :8001"]
@@ -39,37 +62,18 @@ graph TB
                     SVC_ORDERS["orders\nGo :8004"]
                 end
 
-                subgraph DATA["Capa de Datos"]
-                    RDS[("🗄️ RDS PostgreSQL 16\nMulti-AZ en prod")]
+                subgraph DATA["🗄️ Capa de Datos"]
+                    RDS[("🗄️ RDS PostgreSQL 16\nMulti-AZ")]
                     REDIS[("⚡ ElastiCache Redis 7\nSesiones")]
                 end
             end
         end
-
-        %% ── Servicios Externos a la VPC ──────────────────────────────
-        subgraph PLATFORM["Servicios AWS Administrados"]
-            ECR["📦 ECR\n6 repositorios\nscan on push"]
-            SM["🔐 Secrets Manager\nDB credentials"]
-            CW["📊 CloudWatch\nLogs + Metrics\nDashboard"]
-            SNS["📧 SNS\nAlertas de seguridad"]
-            LAMBDA["λ Lambda\necr-scan-notifier"]
-            EB["⚡ EventBridge\nECR Scan Complete"]
-        end
-
-        %% ── CI/CD ────────────────────────────────────────────────────
-        subgraph CICD["CI/CD (GitHub Actions)"]
-            GH["🔧 GitHub Actions\ndeploy.yml"]
-            TF["🏗️ Terraform\nIaC"]
-        end
-
-        S3[("🪣 S3\nTerraform State")]
-        DDB[("🔒 DynamoDB\nState Lock")]
     end
 
-    %% ── Flujo de tráfico ──────────────────────────────────────────────
-    USER -->|"HTTP"| IGW
-    ADMIN_USER -->|"HTTP"| IGW
+    %% ── FLUJOS DE ENTRADA Y RED ──────────────────────────────────────
+    USER & ADMIN_USER -->|"HTTP"| IGW
     IGW --> ALB
+    
     ALB -->|":3000"| SVC_UI
     ALB -->|":3001"| SVC_ADMIN
     ALB -->|":8001"| SVC_CATALOG
@@ -77,60 +81,42 @@ graph TB
     ALB -->|":8003"| SVC_CHECKOUT
     ALB -->|":8004"| SVC_ORDERS
 
-    SVC_UI --> SVC_CATALOG
-    SVC_UI --> SVC_CART
+    %% ── INTERCOMUNICACIÓN DE SERVICIOS ──────────────────────────────
+    SVC_UI --> SVC_CATALOG & SVC_CART
     SVC_CHECKOUT --> SVC_ORDERS
-    SVC_CART --> REDIS
-    SVC_CHECKOUT --> REDIS
+    SVC_CART & SVC_CHECKOUT --> REDIS
 
-    SVC_CATALOG --> RDS
-    SVC_CART --> RDS
-    SVC_CHECKOUT --> RDS
-    SVC_ORDERS --> RDS
+    %% ── CAPA DE PERSISTENCIA Y CONFIGURACIÓN ─────────────────────────
+    SVC_CATALOG & SVC_CART & SVC_CHECKOUT & SVC_ORDERS --> RDS
+    SM -.->|"Inyecta Credenciales"| SVC_CATALOG & SVC_CART & SVC_CHECKOUT & SVC_ORDERS
 
-    %% ── Salida a internet desde privadas ──────────────────────────────
-    ECS -->|"egress"| NAT
+    %% ── TRÁFICO SALIENTE Y MONITOREO ─────────────────────────────────
+    ECS -->|"Egress"| NAT
     NAT --> IGW
+    ECS -.->|"Envía Métricas"| CW
 
-    %% ── Secrets ──────────────────────────────────────────────────────
-    SM -->|"DB credentials"| SVC_CATALOG
-    SM -->|"DB credentials"| SVC_CART
-    SM -->|"DB credentials"| SVC_CHECKOUT
-    SM -->|"DB credentials"| SVC_ORDERS
-
-    %% ── Observabilidad ───────────────────────────────────────────────
-    ECS -->|"logs + metrics"| CW
-
-    %% ── Seguridad ────────────────────────────────────────────────────
-    ECR -->|"scan event"| EB
+    %% ── PIPELINE DE SEGURIDAD AUTOMATIZADO ───────────────────────────
+    ECR -->|"Scan Event"| EB
     EB --> LAMBDA
     LAMBDA --> SNS
-    SNS -->|"email alerta"| ADMIN_USER
+    SNS -.->|"Alerta Email"| ADMIN_USER
 
-    %% ── CI/CD ────────────────────────────────────────────────────────
-    GH -->|"docker push"| ECR
-    GH -->|"terraform apply"| TF
-    TF -->|"provisiona"| VPC
-    TF -->|"state"| S3
-    TF -->|"lock"| DDB
-    ECR -->|"pull image"| ECS
+    %% ── FLUJO CI/CD Y PROVISIONAMIENTO ────────────────────────────────
+    GH -->|"Docker Push"| ECR
+    GH -->|"Dispara"| TF
+    TF -->|"Provisiona"| VPC
+    TF --> S3 & DDB
+    ECR -.->|"Pull Image"| ECS
 
-    %% ── Estilos ──────────────────────────────────────────────────────
-    classDef aws fill:#FF9900,stroke:#232F3E,color:#232F3E,font-weight:bold
-    classDef ecs fill:#FF6B35,stroke:#232F3E,color:white,font-weight:bold
-    classDef data fill:#3F8624,stroke:#232F3E,color:white,font-weight:bold
-    classDef security fill:#DD344C,stroke:#232F3E,color:white,font-weight:bold
-    classDef cicd fill:#4A90D9,stroke:#232F3E,color:white,font-weight:bold
-    classDef infra fill:#7D4E9E,stroke:#232F3E,color:white,font-weight:bold
-
+    %% ── Asignación de Clases Estilizadas ──────────────────────────────
     class ECR,S3,DDB,CW,SNS aws
     class SVC_UI,SVC_ADMIN,SVC_CATALOG,SVC_CART,SVC_CHECKOUT,SVC_ORDERS ecs
     class RDS,REDIS data
     class SM,LAMBDA,EB security
     class GH,TF cicd
     class ALB,IGW,NAT infra
-```
 
+```
 ---
 
 ## Descripción de Componentes
