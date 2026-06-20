@@ -1,9 +1,5 @@
 # ─── Repositorios ECR por servicio ───────────────────────────────────────────
 
-data "aws_iam_role" "labrole" {
-  name = "LabRole"
-}
-
 resource "aws_ecr_repository" "services" {
   for_each = toset(var.services)
 

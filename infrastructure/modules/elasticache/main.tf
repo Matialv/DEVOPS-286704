@@ -1,7 +1,3 @@
-data "aws_iam_role" "labrole" {
-  name = "LabRole"
-}
-
 resource "aws_elasticache_subnet_group" "main" {
   name       = "retailstore-${var.environment}-redis-subnet"
   subnet_ids = var.private_subnet_ids
