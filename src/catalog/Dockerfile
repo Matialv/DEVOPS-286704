@@ -3,7 +3,14 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
-COPY *.go ./
+COPY main.go ./
+COPY api ./api
+COPY config ./config
+COPY controller ./controller
+COPY httputil ./httputil
+COPY middleware ./middleware
+COPY model ./model
+COPY repository ./repository
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o catalog .
 
 # Stage 2: runtime
