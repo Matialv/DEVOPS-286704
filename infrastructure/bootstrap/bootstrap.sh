@@ -1,28 +1,12 @@
 #!/bin/bash
-# Script one-time: crea el bucket S3 y tabla DynamoDB para el estado remoto de Terraform
+# Script one-time: crea la tabla DynamoDB para el lock de estado de Terraform
+# El bucket S3 "retailstore-286704-terraform-state" ya existe y fue creado manualmente
 # Ejecutar UNA SOLA VEZ antes del primer terraform init
 
 set -e
 
 REGION="us-east-1"
-BUCKET="retailstore-286704-terraform-state"
 TABLE="terraform-lock"
-
-echo "Creando bucket S3: $BUCKET"
-aws s3api create-bucket \
-  --bucket "$BUCKET" \
-  --region "$REGION" \
-  --create-bucket-configuration LocationConstraint="$REGION"
-
-aws s3api put-bucket-versioning \
-  --bucket "$BUCKET" \
-  --versioning-configuration Status=Enabled
-
-aws s3api put-bucket-encryption \
-  --bucket "$BUCKET" \
-  --server-side-encryption-configuration '{
-    "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
-  }'
 
 echo "Creando tabla DynamoDB: $TABLE"
 aws dynamodb create-table \

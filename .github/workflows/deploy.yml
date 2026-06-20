@@ -158,7 +158,15 @@ jobs:
 
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform init \
+            -backend-config="bucket=retailstore-286704-terraform-state" \
+            -backend-config="key=${ENV}/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=terraform-lock" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Validate
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -262,7 +270,15 @@ jobs:
 
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform init \
+            -backend-config="bucket=retailstore-286704-terraform-state" \
+            -backend-config="key=${ENV}/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=terraform-lock" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Plan
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
