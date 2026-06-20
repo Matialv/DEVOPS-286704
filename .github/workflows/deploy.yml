@@ -164,6 +164,20 @@ jobs:
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform validate
 
+      - name: Import existing ECR repositories
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          for svc in catalog cart checkout orders ui admin; do
+            terraform import \
+              -var-file="${ENV}.tfvars" \
+              -var="image_tag=${ENV}-${{ github.sha }}" \
+              -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
+              "module.ecr.aws_ecr_repository.services[\"${svc}\"]" \
+              "retailstore-${svc}" 2>/dev/null || true
+          done
+
       - name: Terraform Plan (ECR)
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         env:
