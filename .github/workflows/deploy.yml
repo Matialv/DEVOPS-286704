@@ -19,7 +19,7 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # 1. DETECCIÓN DE SECRETOS
+  # 1. DETECCIÓN DE SECRETOS ...
   # ─────────────────────────────────────────────
   secret-scan:
     name: Secret Detection (Gitleaks)
