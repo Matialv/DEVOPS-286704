@@ -1,3 +1,195 @@
-# Módulo: ecs
-# ECS Cluster Fargate, Task Definitions, Services, ALB
-# TODO: implementar en FASE 4
+locals {
+  services = ["catalog", "cart", "checkout", "orders", "ui", "admin"]
+
+  service_ports = {
+    catalog  = 8001
+    cart     = 8002
+    checkout = 8003
+    orders   = 8004
+    ui       = 3000
+    admin    = 3001
+  }
+}
+
+# ─── IAM Role para tareas ECS ────────────────────────────────────────────────
+
+data "aws_iam_policy_document" "ecs_task_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ecs_task_execution" {
+  name               = "retailstore-${var.environment}-ecs-execution"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_assume.json
+  tags               = merge(var.tags, { Name = "retailstore-${var.environment}-ecs-execution" })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role_policy" "ecs_secrets" {
+  name = "retailstore-${var.environment}-ecs-secrets"
+  role = aws_iam_role.ecs_task_execution.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = [var.db_secret_arn]
+    }]
+  })
+}
+
+# ─── ECS Cluster ─────────────────────────────────────────────────────────────
+
+resource "aws_ecs_cluster" "main" {
+  name = "retailstore-${var.environment}"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = merge(var.tags, { Name = "retailstore-${var.environment}-cluster" })
+}
+
+# ─── CloudWatch Log Groups por servicio ──────────────────────────────────────
+
+resource "aws_cloudwatch_log_group" "services" {
+  for_each = toset(local.services)
+
+  name              = "/retailstore/${var.environment}/${each.key}"
+  retention_in_days = var.environment == "prod" ? 90 : 30
+
+  tags = merge(var.tags, {
+    Name    = "/retailstore/${var.environment}/${each.key}"
+    Service = each.key
+  })
+}
+
+# ─── Task Definitions ────────────────────────────────────────────────────────
+
+resource "aws_ecs_task_definition" "services" {
+  for_each = toset(local.services)
+
+  family                   = "retailstore-${var.environment}-${each.key}"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.cpu
+  memory                   = var.memory
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+
+  container_definitions = jsonencode([{
+    name      = each.key
+    image     = "${var.ecr_repository_urls[each.key]}:${var.image_tag}"
+    essential = true
+
+    portMappings = [{
+      containerPort = local.service_ports[each.key]
+      protocol      = "tcp"
+    }]
+
+    secrets = [{
+      name      = "DATABASE_URL"
+      valueFrom = var.db_secret_arn
+    }]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/retailstore/${var.environment}/${each.key}"
+        "awslogs-region"        = "us-east-1"
+        "awslogs-stream-prefix" = each.key
+      }
+    }
+  }])
+
+  tags = merge(var.tags, {
+    Name    = "retailstore-${var.environment}-${each.key}"
+    Service = each.key
+  })
+}
+
+# ─── ALB ─────────────────────────────────────────────────────────────────────
+
+resource "aws_lb" "main" {
+  name               = "retailstore-${var.environment}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [var.sg_alb_id]
+  subnets            = var.public_subnet_ids
+
+  tags = merge(var.tags, { Name = "retailstore-${var.environment}-alb" })
+}
+
+resource "aws_lb_target_group" "services" {
+  for_each = toset(local.services)
+
+  name        = "rs-${var.environment}-${each.key}"
+  port        = local.service_ports[each.key]
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    path                = "/health"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  tags = merge(var.tags, {
+    Name    = "rs-${var.environment}-${each.key}"
+    Service = each.key
+  })
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.services["ui"].arn
+  }
+}
+
+# ─── ECS Services ────────────────────────────────────────────────────────────
+
+resource "aws_ecs_service" "services" {
+  for_each = toset(local.services)
+
+  name            = "retailstore-${var.environment}-${each.key}"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.services[each.key].arn
+  desired_count   = var.desired_count
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.private_subnet_ids
+    security_groups  = [var.sg_ecs_id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.services[each.key].arn
+    container_name   = each.key
+    container_port   = local.service_ports[each.key]
+  }
+
+  depends_on = [aws_lb_listener.http]
+
+  tags = merge(var.tags, {
+    Name    = "retailstore-${var.environment}-${each.key}"
+    Service = each.key
+  })
+}

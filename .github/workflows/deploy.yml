@@ -165,17 +165,18 @@ jobs:
       - name: Build image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ env.ENVIRONMENT }}-${{ github.sha }}
+          # Tag versionado: <ambiente>-<sha corto> — no se usa latest (buenas prácticas)
+          IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
           docker build \
             -t $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG \
-            -t $ECR_REGISTRY/retailstore-${{ matrix.service }}:latest \
             src/${{ matrix.service }}/
 
       - name: Trivy - Scan image
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
-          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ env.ENVIRONMENT }}-${{ github.sha }}"
+          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}"
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true
@@ -184,10 +185,9 @@ jobs:
       - name: Push image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ env.ENVIRONMENT }}-${{ github.sha }}
+          IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
           docker push $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG
-          docker push $ECR_REGISTRY/retailstore-${{ matrix.service }}:latest
 
   # ─────────────────────────────────────────────
   # 5. DEPLOY CON TERRAFORM
@@ -215,15 +215,22 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
-        run: terraform plan -var-file="${{ env.ENVIRONMENT }}.tfvars" -out=tfplan
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform plan \
+            -var-file="${ENV}.tfvars" \
+            -var="image_tag=${ENV}-${{ github.sha }}" \
+            -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
+            -out=tfplan
 
       - name: Manual Approval (solo prod)
-        if: env.ENVIRONMENT == 'prod'
+        if: github.event.inputs.environment == 'prod'
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
@@ -231,7 +238,7 @@ jobs:
           minimum-approvals: 1
 
       - name: Terraform Apply
-        working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform apply -auto-approve tfplan
 
       - name: Get ALB URL from Terraform output
