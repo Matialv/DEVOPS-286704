@@ -13,6 +13,7 @@ resource "aws_sns_topic" "security_alerts" {
 }
 
 resource "aws_sns_topic_subscription" "email" {
+  count     = var.sns_email != "" ? 1 : 0
   topic_arn = aws_sns_topic.security_alerts.arn
   protocol  = "email"
   endpoint  = var.sns_email

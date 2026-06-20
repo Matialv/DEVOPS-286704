@@ -156,12 +156,6 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Restore Terraform state (ECR)
-        uses: actions/cache@v4
-        with:
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
-          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
-
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform init
@@ -186,12 +180,12 @@ jobs:
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform apply -auto-approve ecr.tfplan
 
-      - name: Save Terraform state (ECR)
-        uses: actions/cache/save@v4
-        if: always()
+      - name: Upload Terraform state
+        uses: actions/upload-artifact@v4
         with:
+          name: tfstate-${{ github.event.inputs.environment || 'dev' }}-${{ github.run_id }}
           path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
-          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
+          retention-days: 1
 
   # ─────────────────────────────────────────────
   # 5. BUILD DE IMÁGENES
@@ -273,11 +267,11 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Restore Terraform state
-        uses: actions/cache@v4
+      - name: Download Terraform state
+        uses: actions/download-artifact@v4
         with:
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
-          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
+          name: tfstate-${{ github.event.inputs.environment || 'dev' }}-${{ github.run_id }}
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -321,9 +315,10 @@ jobs:
         run: |
           bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
 
-      - name: Save Terraform state
-        uses: actions/cache/save@v4
+      - name: Upload Terraform state final
+        uses: actions/upload-artifact@v4
         if: always()
         with:
+          name: tfstate-${{ github.event.inputs.environment || 'dev' }}-final-${{ github.run_id }}
           path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
-          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
+          retention-days: 7

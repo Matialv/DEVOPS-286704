@@ -4,8 +4,9 @@ variable "environment" {
 }
 
 variable "sns_email" {
-  description = "Email para notificaciones de vulnerabilidades críticas"
+  description = "Email para notificaciones de vulnerabilidades críticas (vacío = sin suscripción)"
   type        = string
+  default     = ""
 }
 
 variable "tags" {
