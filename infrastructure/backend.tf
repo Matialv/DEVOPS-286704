@@ -1,6 +1,10 @@
 # Estado remoto en S3 + locking con DynamoDB
 # Ejecutar bootstrap/ antes de hacer terraform init
+data "aws_iam_role" "labrole" {
+  name = "LabRole"
+}
 terraform {
+  
   backend "s3" {
     bucket         = "retailstore-terraform-state"
     key            = "retailstore/terraform.tfstate"

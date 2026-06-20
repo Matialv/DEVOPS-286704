@@ -1,3 +1,7 @@
+data "aws_iam_role" "labrole" {
+  name = "LabRole"
+}
+
 locals {
   services = ["catalog", "cart", "checkout", "orders", "ui", "admin"]
 
