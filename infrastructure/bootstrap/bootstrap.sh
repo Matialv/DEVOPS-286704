@@ -5,7 +5,7 @@
 set -e
 
 REGION="us-east-1"
-BUCKET="retailstore-terraform-state"
+BUCKET="retailstore-286704-terraform-state"
 TABLE="terraform-lock"
 
 echo "Creando bucket S3: $BUCKET"
