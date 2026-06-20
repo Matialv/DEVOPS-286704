@@ -234,8 +234,17 @@ jobs:
         working-directory: infrastructure/environments/${{ env.ENVIRONMENT }}
         run: terraform apply -auto-approve tfplan
 
-      - name: Smoke Test
+      - name: Get ALB URL from Terraform output
+        id: tf-output
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: |
-          echo "Verificando endpoints del ambiente ${{ env.ENVIRONMENT }}..."
-          # TODO: reemplazar con el ALB URL real del output de terraform
-          # curl -f http://<ALB_URL>/health
+          ALB_URL=$(terraform output -raw alb_dns_name 2>/dev/null || echo "")
+          echo "alb_url=http://$ALB_URL" >> $GITHUB_OUTPUT
+
+      - name: Wait for services to be ready
+        run: |
+          bash tests/wait-for-services.sh "${{ steps.tf-output.outputs.alb_url }}" 120
+
+      - name: Smoke Tests
+        run: |
+          bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
