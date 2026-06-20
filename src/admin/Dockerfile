@@ -1,4 +1,4 @@
-# Stage 1: deps
+# Stage 1: deps (solo produccion)
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json ./
@@ -7,9 +7,10 @@ RUN npm install --omit=dev
 # Stage 2: build
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package.json ./
+COPY package.json tsconfig.json ./
 RUN npm install
-COPY . .
+COPY src ./src
+COPY public ./public
 RUN npm run build
 
 # Stage 3: runtime
