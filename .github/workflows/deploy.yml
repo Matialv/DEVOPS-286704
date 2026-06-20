@@ -156,16 +156,16 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+      - name: Restore state from S3
         env:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
-          terraform init \
-            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
-            -backend-config="key=${ENV}/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="encrypt=true"
+          aws s3 cp "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate" \
+            "infrastructure/environments/${ENV}/terraform.tfstate" 2>/dev/null || echo "No hay state previo, comenzando desde cero"
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform init
 
       - name: Terraform Validate
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -176,13 +176,17 @@ jobs:
         env:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
+          TF_VARS="-var-file=${ENV}.tfvars -var=image_tag=${ENV}-${{ github.sha }} -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
           for svc in catalog cart checkout orders ui admin; do
-            terraform import \
-              -var-file="${ENV}.tfvars" \
-              -var="image_tag=${ENV}-${{ github.sha }}" \
-              -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
-              "module.ecr.aws_ecr_repository.services[\"${svc}\"]" \
-              "retailstore-${svc}" 2>/dev/null || true
+            ADDR="module.ecr.aws_ecr_repository.services[\"${svc}\"]"
+            if terraform state show "$ADDR" > /dev/null 2>&1; then
+              echo "ECR ${svc} ya está en el state, omitiendo import"
+              continue
+            fi
+            if aws ecr describe-repositories --repository-names "retailstore-${svc}" > /dev/null 2>&1; then
+              echo "Importando ECR existente: retailstore-${svc}"
+              terraform import $TF_VARS "$ADDR" "retailstore-${svc}"
+            fi
           done
 
       - name: Terraform Plan (ECR)
@@ -200,6 +204,14 @@ jobs:
       - name: Terraform Apply (ECR)
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform apply -auto-approve ecr.tfplan
+
+      - name: Save state to S3
+        if: always()
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          aws s3 cp "infrastructure/environments/${ENV}/terraform.tfstate" \
+            "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate"
 
 
   # ─────────────────────────────────────────────
@@ -282,32 +294,44 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+      - name: Restore state from S3
         env:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
-          terraform init \
-            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
-            -backend-config="key=${ENV}/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="encrypt=true"
+          aws s3 cp "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate" \
+            "infrastructure/environments/${ENV}/terraform.tfstate" 2>/dev/null || echo "No hay state previo, comenzando desde cero"
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform init
 
       - name: Import existing resources
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         env:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
-          VARS="-var-file=${ENV}.tfvars -var=image_tag=${ENV}-${{ github.sha }} -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
+          TF_VARS="-var-file=${ENV}.tfvars -var=image_tag=${ENV}-${{ github.sha }} -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
 
           for svc in catalog cart checkout orders ui admin; do
-            terraform import $VARS \
-              "module.ecr.aws_ecr_repository.services[\"${svc}\"]" \
-              "retailstore-${svc}" 2>/dev/null || true
+            # ECR repos
+            ECR_ADDR="module.ecr.aws_ecr_repository.services[\"${svc}\"]"
+            if ! terraform state show "$ECR_ADDR" > /dev/null 2>&1; then
+              if aws ecr describe-repositories --repository-names "retailstore-${svc}" > /dev/null 2>&1; then
+                echo "Importando ECR: retailstore-${svc}"
+                terraform import $TF_VARS "$ECR_ADDR" "retailstore-${svc}"
+              fi
+            fi
 
-            terraform import $VARS \
-              "module.ecs.aws_cloudwatch_log_group.services[\"${svc}\"]" \
-              "/retailstore/${ENV}/${svc}" 2>/dev/null || true
+            # CloudWatch log groups
+            LG_ADDR="module.ecs.aws_cloudwatch_log_group.services[\"${svc}\"]"
+            if ! terraform state show "$LG_ADDR" > /dev/null 2>&1; then
+              if aws logs describe-log-groups --log-group-name-prefix "/retailstore/${ENV}/${svc}" \
+                  --query "logGroups[?logGroupName=='/retailstore/${ENV}/${svc}'].logGroupName" \
+                  --output text | grep -q .; then
+                echo "Importando log group: /retailstore/${ENV}/${svc}"
+                terraform import $TF_VARS "$LG_ADDR" "/retailstore/${ENV}/${svc}"
+              fi
+            fi
           done
 
       - name: Terraform Plan
@@ -348,3 +372,10 @@ jobs:
         run: |
           bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
 
+      - name: Save state to S3
+        if: always()
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          aws s3 cp "infrastructure/environments/${ENV}/terraform.tfstate" \
+            "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate"
