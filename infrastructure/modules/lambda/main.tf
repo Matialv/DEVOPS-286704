@@ -18,43 +18,7 @@ resource "aws_sns_topic_subscription" "email" {
   endpoint  = var.sns_email
 }
 
-# ─── IAM Role para Lambda ────────────────────────────────────────────────────
-
-data "aws_iam_policy_document" "lambda_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "lambda" {
-  name               = "retailstore-${var.environment}-ecr-scan-notifier"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-  tags               = merge(var.tags, { Name = "retailstore-${var.environment}-ecr-scan-notifier" })
-}
-
-resource "aws_iam_role_policy" "lambda" {
-  name = "retailstore-${var.environment}-ecr-scan-notifier-policy"
-  role = aws_iam_role.lambda.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "arn:aws:logs:*:*:*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["sns:Publish"]
-        Resource = aws_sns_topic.security_alerts.arn
-      }
-    ]
-  })
-}
+# LabRole es el único rol disponible en AWS Academy — se usa para la función Lambda
 
 # ─── Lambda Function ─────────────────────────────────────────────────────────
 
@@ -66,7 +30,7 @@ data "archive_file" "lambda" {
 
 resource "aws_lambda_function" "ecr_scan_notifier" {
   function_name    = "retailstore-${var.environment}-ecr-scan-notifier"
-  role             = aws_iam_role.lambda.arn
+  role             = data.aws_iam_role.labrole.arn
   handler          = "ecr_scan_notifier.handler"
   runtime          = "python3.12"
   filename         = data.archive_file.lambda.output_path
