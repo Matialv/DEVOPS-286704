@@ -158,7 +158,14 @@ jobs:
 
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform init \
+            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
+            -backend-config="key=${ENV}/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Validate
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -194,12 +201,6 @@ jobs:
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform apply -auto-approve ecr.tfplan
 
-      - name: Upload Terraform state
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfstate-${{ github.event.inputs.environment || 'dev' }}-${{ github.run_id }}
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
-          retention-days: 1
 
   # ─────────────────────────────────────────────
   # 5. BUILD DE IMÁGENES
@@ -281,15 +282,33 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Download Terraform state
-        uses: actions/download-artifact@v4
-        with:
-          name: tfstate-${{ github.event.inputs.environment || 'dev' }}-${{ github.run_id }}
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform init \
+            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
+            -backend-config="key=${ENV}/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true"
+
+      - name: Import existing resources
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          VARS="-var-file=${ENV}.tfvars -var=image_tag=${ENV}-${{ github.sha }} -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
+
+          for svc in catalog cart checkout orders ui admin; do
+            terraform import $VARS \
+              "module.ecr.aws_ecr_repository.services[\"${svc}\"]" \
+              "retailstore-${svc}" 2>/dev/null || true
+
+            terraform import $VARS \
+              "module.ecs.aws_cloudwatch_log_group.services[\"${svc}\"]" \
+              "/retailstore/${ENV}/${svc}" 2>/dev/null || true
+          done
 
       - name: Terraform Plan
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -329,10 +348,3 @@ jobs:
         run: |
           bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
 
-      - name: Upload Terraform state final
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: tfstate-${{ github.event.inputs.environment || 'dev' }}-final-${{ github.run_id }}
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
-          retention-days: 7
