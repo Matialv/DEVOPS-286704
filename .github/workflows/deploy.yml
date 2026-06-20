@@ -156,17 +156,15 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
+      - name: Restore Terraform state (ECR)
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
+          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
+
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          terraform init \
-            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
-            -backend-config="key=${ENV}/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="dynamodb_table=terraform-lock" \
-            -backend-config="encrypt=true"
+        run: terraform init
 
       - name: Terraform Validate
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -187,6 +185,13 @@ jobs:
       - name: Terraform Apply (ECR)
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform apply -auto-approve ecr.tfplan
+
+      - name: Save Terraform state (ECR)
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
+          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
 
   # ─────────────────────────────────────────────
   # 5. BUILD DE IMÁGENES
@@ -268,17 +273,15 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
+      - name: Restore Terraform state
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
+          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
+
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          terraform init \
-            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
-            -backend-config="key=${ENV}/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="dynamodb_table=terraform-lock" \
-            -backend-config="encrypt=true"
+        run: terraform init
 
       - name: Terraform Plan
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -317,3 +320,10 @@ jobs:
       - name: Smoke Tests
         run: |
           bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
+
+      - name: Save Terraform state
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate
+          key: tfstate-${{ github.event.inputs.environment || 'dev' }}
