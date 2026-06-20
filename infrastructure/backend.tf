@@ -6,7 +6,7 @@ data "aws_iam_role" "labrole" {
 terraform {
   
   backend "s3" {
-    bucket         = "retailstore-terraform-state"
+    bucket         = "retailstore-286704-terraform-state"
     key            = "retailstore/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-lock"
