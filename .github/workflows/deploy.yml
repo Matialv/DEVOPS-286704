@@ -162,7 +162,7 @@ jobs:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
           terraform init \
-            -backend-config="bucket=retailstore-286704-terraform-state" \
+            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
             -backend-config="key=${ENV}/terraform.tfstate" \
             -backend-config="region=us-east-1" \
             -backend-config="dynamodb_table=terraform-lock" \
@@ -274,7 +274,7 @@ jobs:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
           terraform init \
-            -backend-config="bucket=retailstore-286704-terraform-state" \
+            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
             -backend-config="key=${ENV}/terraform.tfstate" \
             -backend-config="region=us-east-1" \
             -backend-config="dynamodb_table=terraform-lock" \

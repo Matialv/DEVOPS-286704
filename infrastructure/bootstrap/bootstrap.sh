@@ -1,7 +1,8 @@
 #!/bin/bash
 # Script one-time: crea la tabla DynamoDB para el lock de estado de Terraform
-# El bucket S3 "retailstore-286704-terraform-state" ya existe y fue creado manualmente
+# Los buckets S3 "retailstore-{dev|test|prod}-terraform-state" ya existen y fueron creados manualmente
 # Ejecutar UNA SOLA VEZ antes del primer terraform init
+#
 
 set -e
 
