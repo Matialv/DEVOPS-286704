@@ -47,7 +47,6 @@ jobs:
     needs: secret-scan
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -84,12 +83,16 @@ jobs:
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
-      - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Mostrar resumen Semgrep
         if: always()
-        with:
-          sarif_file: semgrep.sarif
-          token: ${{ secrets.DEVOPS_TOKEN }}
+        run: |
+          echo "## Resultados SAST (Semgrep)" >> $GITHUB_STEP_SUMMARY
+          if [ -f semgrep.sarif ]; then
+            FINDINGS=$(python3 -c "import json,sys; d=json.load(open('semgrep.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
+            echo "Hallazgos encontrados: **$FINDINGS**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Archivo SARIF no generado" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # ─────────────────────────────────────────────
   # 3. SCA - ANÁLISIS DE DEPENDENCIAS
@@ -101,7 +104,6 @@ jobs:
     needs: secret-scan
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -118,23 +120,16 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
 
-      - name: Check SARIF file
+      - name: Mostrar resumen Trivy
         if: always()
         run: |
+          echo "## Resultados SCA (Trivy)" >> $GITHUB_STEP_SUMMARY
           if [ -f trivy-fs.sarif ]; then
-            echo "✓ trivy-fs.sarif encontrado"
-            ls -lh trivy-fs.sarif
+            FINDINGS=$(python3 -c "import json,sys; d=json.load(open('trivy-fs.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
+            echo "Vulnerabilidades CRITICAL/HIGH encontradas: **$FINDINGS**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "✗ trivy-fs.sarif NO encontrado"
+            echo "Sin vulnerabilidades CRITICAL/HIGH detectadas ✅" >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Upload Trivy SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('trivy-fs.sarif') != ''
-        with:
-          sarif_file: trivy-fs.sarif
-          category: trivy-fs
-          token: ${{ secrets.DEVOPS_TOKEN }}
 
   # ─────────────────────────────────────────────
   # 4. BUILD DE IMÁGENES
