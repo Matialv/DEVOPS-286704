@@ -3,7 +3,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
-RUN corepack enable && corepack install && yarn install --immutable
+RUN corepack enable && corepack install && yarn install
 
 # Stage 2: build
 FROM node:22-alpine AS builder
