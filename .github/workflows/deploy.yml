@@ -132,12 +132,61 @@ jobs:
           fi
 
   # ─────────────────────────────────────────────
-  # 4. BUILD DE IMÁGENES
+  # 4. BOOTSTRAP ECR (repos deben existir antes del build)
+  # ─────────────────────────────────────────────
+  ecr-bootstrap:
+    name: Bootstrap ECR Repositories
+    runs-on: ubuntu-latest
+    needs: [sast, sca]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform validate
+
+      - name: Terraform Plan (ECR)
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform plan \
+            -target=module.ecr \
+            -var-file="${ENV}.tfvars" \
+            -var="image_tag=${ENV}-${{ github.sha }}" \
+            -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
+            -out=ecr.tfplan
+
+      - name: Terraform Apply (ECR)
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform apply -auto-approve ecr.tfplan
+
+  # ─────────────────────────────────────────────
+  # 5. BUILD DE IMÁGENES
   # ─────────────────────────────────────────────
   build:
     name: Build & Scan Images
     runs-on: ubuntu-latest
-    needs: [sast, sca]
+    needs: [ecr-bootstrap]
     permissions:
       contents: read
     strategy:
