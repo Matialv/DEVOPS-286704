@@ -203,7 +203,7 @@ jobs:
           IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
           TFVARS_FILE="infrastructure/environments/${ENV}/${ENV}.tfvars"
-          sed -i "s/^image_tag.*=/image_tag          = \"${IMAGE_TAG}\"/" "$TFVARS_FILE"
+          sed -i "s/^image_tag.*$/image_tag          = \"${IMAGE_TAG}\"/" "$TFVARS_FILE"
           cat "$TFVARS_FILE"
 
       - name: Commit and push updated tfvars
