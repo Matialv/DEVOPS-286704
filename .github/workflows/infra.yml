@@ -19,10 +19,10 @@ on:
 
 jobs:
   # ─────────────────────────────────────────────
-  # 1. BOOTSTRAP ECR (repos deben existir antes del build)
+  # 1. TERRAFORM INIT
   # ─────────────────────────────────────────────
-  ecr-bootstrap:
-    name: Bootstrap ECR Repositories
+  terraform-init:
+    name: Terraform Init - ${{ github.event.inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,13 +41,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
-      - name: Restore state from S3
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          aws s3 cp "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate" \
-            "infrastructure/environments/${ENV}/terraform.tfstate" 2>/dev/null || echo "No hay state previo, comenzando desde cero"
 
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -57,55 +50,13 @@ jobs:
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform validate
 
-      - name: Import existing ECR repositories
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          TF_VARS="-var-file=${ENV}.tfvars -var=image_tag=${ENV}-${{ github.sha }} -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
-          for svc in catalog cart checkout orders ui admin; do
-            ADDR="module.ecr.aws_ecr_repository.services[\"${svc}\"]"
-            if terraform state show "$ADDR" > /dev/null 2>&1; then
-              echo "ECR ${svc} ya está en el state, omitiendo import"
-              continue
-            fi
-            if aws ecr describe-repositories --repository-names "retailstore-${svc}" > /dev/null 2>&1; then
-              echo "Importando ECR existente: retailstore-${svc}"
-              terraform import $TF_VARS "$ADDR" "retailstore-${svc}"
-            fi
-          done
-
-      - name: Terraform Plan (ECR)
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          terraform plan \
-            -target=module.ecr \
-            -var-file="${ENV}.tfvars" \
-            -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
-            -out=ecr.tfplan
-
-      - name: Terraform Apply (ECR)
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform apply -auto-approve ecr.tfplan
-
-      - name: Save state to S3
-        if: always()
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          aws s3 cp "infrastructure/environments/${ENV}/terraform.tfstate" \
-            "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate"
-
   # ─────────────────────────────────────────────
-  # 2. DEPLOY CON TERRAFORM
+  # 2. TERRAFORM PLAN
   # ─────────────────────────────────────────────
-  deploy:
-    name: Deploy to ${{ github.event.inputs.environment || 'dev' }}
+  terraform-plan:
+    name: Terraform Plan - ${{ github.event.inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
-    needs: ecr-bootstrap
-    environment: "${{ github.event.inputs.environment || 'dev' }}"
+    needs: terraform-init
     permissions:
       contents: read
     steps:
@@ -123,13 +74,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
-      - name: Restore state from S3
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          aws s3 cp "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate" \
-            "infrastructure/environments/${ENV}/terraform.tfstate" 2>/dev/null || echo "No hay state previo, comenzando desde cero"
 
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
@@ -140,7 +84,7 @@ jobs:
         env:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
-          TF_VARS="-var-file=${ENV}.tfvars -var=image_tag=${ENV}-${{ github.sha }} -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
+          TF_VARS="-var-file=${ENV}.tfvars -var=sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
 
           for svc in catalog cart checkout orders ui admin; do
             ECR_ADDR="module.ecr.aws_ecr_repository.services[\"${svc}\"]"
@@ -172,6 +116,48 @@ jobs:
             -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
             -out=tfplan
 
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.environment || 'dev' }}
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+
+  # ─────────────────────────────────────────────
+  # 3. TERRAFORM APPLY
+  # ─────────────────────────────────────────────
+  terraform-apply:
+    name: Terraform Apply - ${{ github.event.inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    environment: "${{ github.event.inputs.environment || 'dev' }}"
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform init
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.environment || 'dev' }}
+          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/
+
       - name: Manual Approval (solo prod)
         if: github.event.inputs.environment == 'prod'
         uses: trstringer/manual-approval@v1
@@ -191,18 +177,46 @@ jobs:
           ALB_URL=$(terraform output -raw alb_dns_name 2>/dev/null || echo "")
           echo "alb_url=http://$ALB_URL" >> $GITHUB_OUTPUT
 
+  # ─────────────────────────────────────────────
+  # 4. SMOKE TESTS
+  # ─────────────────────────────────────────────
+  smoke-tests:
+    name: Smoke Tests - ${{ github.event.inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: terraform init
+
+      - name: Get ALB URL from Terraform output
+        id: tf-output
+        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          ALB_URL=$(terraform output -raw alb_dns_name 2>/dev/null || echo "")
+          echo "alb_url=http://$ALB_URL" >> $GITHUB_OUTPUT
+
       - name: Wait for services to be ready
         run: |
           bash tests/wait-for-services.sh "${{ steps.tf-output.outputs.alb_url }}" 120
 
-      - name: Smoke Tests
+      - name: Run Smoke Tests
         run: |
           bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
-
-      - name: Save state to S3
-        if: always()
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          aws s3 cp "infrastructure/environments/${ENV}/terraform.tfstate" \
-            "s3://retailstore-${ENV}-terraform-state/${ENV}/terraform.tfstate"
