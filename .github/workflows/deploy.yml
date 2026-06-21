@@ -184,3 +184,35 @@ jobs:
           IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
           docker push $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG
+
+  # ─────────────────────────────────────────────
+  # 5. ACTUALIZAR .tfvars CON EL NUEVO IMAGE_TAG
+  # ─────────────────────────────────────────────
+  update-tfvars:
+    name: Update Terraform tfvars with new image tag
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update tfvars with new image_tag
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+          IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
+        run: |
+          TFVARS_FILE="infrastructure/environments/${ENV}/${ENV}.tfvars"
+          sed -i "s/^image_tag.*=/image_tag          = \"${IMAGE_TAG}\"/" "$TFVARS_FILE"
+          cat "$TFVARS_FILE"
+
+      - name: Commit and push updated tfvars
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+          IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add "infrastructure/environments/${ENV}/${ENV}.tfvars"
+          git commit -m "Deploy: Update ${ENV}.tfvars image_tag to ${IMAGE_TAG}" --allow-empty
+          git push
