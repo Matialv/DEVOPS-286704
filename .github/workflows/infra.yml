@@ -83,7 +83,6 @@ jobs:
           terraform plan \
             -target=module.ecr \
             -var-file="${ENV}.tfvars" \
-            -var="image_tag=${ENV}-${{ github.sha }}" \
             -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
             -out=ecr.tfplan
 
@@ -170,7 +169,6 @@ jobs:
         run: |
           terraform plan \
             -var-file="${ENV}.tfvars" \
-            -var="image_tag=${ENV}-${{ github.sha }}" \
             -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
             -out=tfplan
 

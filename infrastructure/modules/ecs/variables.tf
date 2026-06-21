@@ -36,6 +36,7 @@ variable "ecr_repository_urls" {
 variable "image_tag" {
   description = "Tag de imagen a desplegar (formato: <ambiente>-<sha>)"
   type        = string
+  default     = ""
 }
 
 variable "desired_count" {
