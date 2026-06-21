@@ -1,5 +1,8 @@
 # Trivy - CVEs ignorados con justificación documentada
 # Formato: CVE-XXXX-XXXXX  # Justificación
 #
+# Excepciones Activas:
+CVE-2026-33816  # pgx/v5 Memory-safety issue - No hay acceso a actualizar go.mod en RetailStore repo, pendiente de actualizar en repo origen
+
 # Ejemplo:
 # CVE-2023-12345  # Falso positivo, no afecta al path de código utilizado
