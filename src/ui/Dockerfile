@@ -18,6 +18,7 @@ FROM node:22-alpine
 WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/public ./public
 COPY --from=deps --chown=appuser:appgroup /app/node_modules ./node_modules
 USER appuser
 ENV PORT=3000
