@@ -220,6 +220,6 @@ jobs:
       - name: Trigger Infra Pipeline
         env:
           ENV: ${{ github.event.inputs.environment || 'dev' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
         run: |
           gh workflow run infra.yml -f environment="${ENV}"
