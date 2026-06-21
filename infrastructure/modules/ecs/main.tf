@@ -109,11 +109,12 @@ resource "aws_lb_target_group" "services" {
   target_type = "ip"
 
   health_check {
-    path                = "/health"
+    path                = "/"
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 3
+    matcher             = "200-399"
   }
 
   tags = merge(var.tags, {
