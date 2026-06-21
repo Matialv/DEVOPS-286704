@@ -3,6 +3,6 @@ vpc_cidr           = "10.0.0.0/16"
 ecs_desired_count  = 1
 rds_instance_class = "db.t3.micro"
 multi_az           = false
-image_tag          = "dev-370c18f474dba22578c15b1ac12175208cd6c1d3"
+image_tag          = "dev-87526db68b2c1030c848f3d87a28640a9b446cca"
 # Actualizar image_tag después de que deploy.yml complete: dev-<git-sha>
 # sns_email se pasa desde variable de entorno o GitHub Secret
