@@ -23,12 +23,17 @@ variable "multi_az" {
   default = true
 }
 
+variable "redis_node_type" {
+  type    = string
+  default = "cache.t3.medium"
+}
+
 variable "image_tag" {
   description = "Tag de imagen a desplegar (formato: <ambiente>-<sha>)"
   type        = string
 }
 
 variable "sns_email" {
-  description = "Email para alertas de seguridad"
   type        = string
+  description = "Email para alertas de seguridad"
 }

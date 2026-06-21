@@ -62,6 +62,11 @@ variable "db_secret_arn" {
   type        = string
 }
 
+variable "redis_endpoint" {
+  description = "Endpoint del cluster Redis (host:puerto)"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags a aplicar a todos los recursos para control de costos"
   type        = map(string)

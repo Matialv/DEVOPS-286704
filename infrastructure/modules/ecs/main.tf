@@ -2,6 +2,10 @@ data "aws_iam_role" "labrole" {
   name = "LabRole"
 }
 
+data "aws_secretsmanager_secret_version" "db_credentials" {
+  secret_id = var.db_secret_arn
+}
+
 locals {
   services = ["catalog", "cart", "checkout", "orders", "ui", "admin"]
 
@@ -66,10 +70,99 @@ resource "aws_ecs_task_definition" "services" {
       protocol      = "tcp"
     }]
 
-    secrets = [{
-      name      = "DATABASE_URL"
-      valueFrom = var.db_secret_arn
-    }]
+    environment = concat(
+      [
+        {
+          name  = "REDIS_URL"
+          value = "redis://${var.redis_endpoint}"
+        }
+      ],
+      each.key == "catalog" ? [
+        {
+          name  = "RETAIL_CATALOG_PERSISTENCE_PROVIDER"
+          value = "postgres"
+        },
+        {
+          name  = "RETAIL_CATALOG_PERSISTENCE_ENDPOINT"
+          value = "${jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host}:5432"
+        },
+        {
+          name  = "RETAIL_CATALOG_PERSISTENCE_DB_NAME"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
+        },
+        {
+          name  = "RETAIL_CATALOG_PERSISTENCE_USER"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
+        },
+        {
+          name  = "RETAIL_CATALOG_PERSISTENCE_CONNECT_TIMEOUT"
+          value = "5"
+        }
+      ] : [],
+      each.key == "orders" ? [
+        {
+          name  = "RETAIL_ORDERS_PERSISTENCE_ENDPOINT"
+          value = "${jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host}:5432"
+        },
+        {
+          name  = "RETAIL_ORDERS_PERSISTENCE_USERNAME"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
+        },
+        {
+          name  = "RETAIL_ORDERS_PERSISTENCE_NAME"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
+        }
+      ] : [],
+      each.key == "cart" ? [
+        {
+          name  = "CART_PERSISTENCE_PROVIDER"
+          value = "postgres"
+        },
+        {
+          name  = "CART_POSTGRES_HOST"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host
+        },
+        {
+          name  = "CART_POSTGRES_PORT"
+          value = "5432"
+        },
+        {
+          name  = "CART_POSTGRES_DB"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
+        },
+        {
+          name  = "CART_POSTGRES_USER"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
+        }
+      ] : []
+    )
+
+    secrets = concat(
+      [
+        {
+          name      = "DATABASE_URL"
+          valueFrom = var.db_secret_arn
+        }
+      ],
+      each.key == "catalog" ? [
+        {
+          name      = "RETAIL_CATALOG_PERSISTENCE_PASSWORD"
+          valueFrom = "${var.db_secret_arn}:password::"
+        }
+      ] : [],
+      each.key == "orders" ? [
+        {
+          name      = "RETAIL_ORDERS_PERSISTENCE_PASSWORD"
+          valueFrom = "${var.db_secret_arn}:password::"
+        }
+      ] : [],
+      each.key == "cart" ? [
+        {
+          name      = "CART_POSTGRES_PASSWORD"
+          valueFrom = "${var.db_secret_arn}:password::"
+        }
+      ] : []
+    )
 
     logConfiguration = {
       logDriver = "awslogs"
@@ -109,13 +202,13 @@ resource "aws_lb_target_group" "services" {
   target_type = "ip"
 
   health_check {
-    path                = "/"
+    path                = "/health"
     protocol            = "HTTP"
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 3
-    matcher             = "200,404"
+    matcher             = "200"
   }
 
   tags = merge(var.tags, {

@@ -16,7 +16,6 @@ variable "sg_redis_id" {
 variable "node_type" {
   description = "Tipo de nodo Redis"
   type        = string
-  default     = "cache.t3.micro"
 }
 
 variable "tags" {

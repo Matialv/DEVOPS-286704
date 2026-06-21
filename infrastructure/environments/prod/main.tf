@@ -49,6 +49,7 @@ module "elasticache" {
   environment        = var.environment
   private_subnet_ids = module.networking.private_subnet_ids
   sg_redis_id        = module.networking.sg_redis_id
+  node_type          = var.redis_node_type
   tags               = local.common_tags
 }
 
@@ -64,6 +65,7 @@ module "ecs" {
   image_tag           = var.image_tag
   desired_count       = var.ecs_desired_count
   db_secret_arn       = module.rds.db_secret_arn
+  redis_endpoint      = "${module.elasticache.redis_endpoint}:${module.elasticache.redis_port}"
   tags                = local.common_tags
 }
 
