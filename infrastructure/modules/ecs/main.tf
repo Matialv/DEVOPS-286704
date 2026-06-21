@@ -88,7 +88,7 @@ resource "aws_ecs_task_definition" "services" {
 }
 
 # ─── ALB ─────────────────────────────────────────────────────────────────────
-
+# test
 resource "aws_lb" "main" {
   name               = "retailstore-${var.environment}-alb"
   internal           = false
