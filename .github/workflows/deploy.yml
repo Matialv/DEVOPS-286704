@@ -216,3 +216,10 @@ jobs:
           git add "infrastructure/environments/${ENV}/${ENV}.tfvars"
           git commit -m "Deploy: Update ${ENV}.tfvars image_tag to ${IMAGE_TAG}" --allow-empty
           git push
+
+      - name: Trigger Infra Pipeline
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run infra.yml -f environment="${ENV}"
