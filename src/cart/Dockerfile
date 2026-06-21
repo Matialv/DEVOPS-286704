@@ -9,8 +9,8 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 COPY --from=builder /install /usr/local
-COPY --chown=appuser:appgroup *.py ./
+COPY --chown=appuser:appgroup app/ ./app/
 USER appuser
 ENV PORT=8002
 EXPOSE 8002
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
