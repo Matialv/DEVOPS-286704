@@ -15,7 +15,6 @@ locals {
   }
 }
 
-# LabRole es el único rol disponible en AWS Academy — se usa para todas las tareas ECS
 
 # ─── ECS Cluster ─────────────────────────────────────────────────────────────
 
@@ -131,6 +130,26 @@ resource "aws_lb_listener" "http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.services["ui"].arn
+  }
+}
+
+# ─── Additional listeners per service (puerto interno = puerto externo en ALB) ───
+resource "aws_lb_listener" "service_ports" {
+  for_each = {
+    catalog  = 8001
+    cart     = 8002
+    checkout = 8003
+    orders   = 8004
+    admin    = 3001
+  }
+
+  load_balancer_arn = aws_lb.main.arn
+  port              = each.value
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.services[each.key].arn
   }
 }
 
