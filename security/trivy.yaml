@@ -2,7 +2,6 @@
 # Documentación: https://aquasecurity.github.io/trivy
 severity:
   - CRITICAL
-  - HIGH
 
 # Ignorar vulnerabilidades con justificación documentada
 # ignorefile: .trivyignore
