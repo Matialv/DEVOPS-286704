@@ -2,6 +2,7 @@
 # Formato: CVE-XXXX-XXXXX  # Justificación
 #
 # Excepciones Activas:
+CVE-2026-33816  # pgx v5.6.0 - fix requiere Go 1.25+, no compatible con la versión actual del proyecto
 
 # Ejemplo:
 # CVE-2023-12345  # Falso positivo, no afecta al path de código utilizado
