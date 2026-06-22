@@ -2,8 +2,6 @@
 # Formato: CVE-XXXX-XXXXX  # Justificación
 #
 # Excepciones Activas:
-CVE-2026-33816  # pgx/v5 Memory-safety issue - No hay acceso a actualizar go.mod en RetailStore repo, pendiente de actualizar en repo origen
-CVE-2026-33186  # google.golang.org/grpc v1.73.0 - gRPC-Go authorization bypass - No hay acceso a actualizar go.mod en RetailStore repo, pendiente de actualizar en repo origen
 
 # Ejemplo:
 # CVE-2023-12345  # Falso positivo, no afecta al path de código utilizado

@@ -1,9 +1,5 @@
 # Trivy - Configuración de escaneo
-# Documentación: https://aquasecurity.github.io/trivy
 severity:
   - CRITICAL
-
-# Ignorar vulnerabilidades con justificación documentada
-# ignorefile: .trivyignore
 
 exit-code: 1
