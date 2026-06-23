@@ -28,6 +28,17 @@ locals {
     ui       = 80
     admin    = 3001
   }
+
+  # Prefijos cortos para name_prefix de target groups (limite AWS: 6 chars).
+  # Incluye inicial del entorno; el nombre descriptivo va en los tags.
+  service_tg_prefix = {
+    catalog  = "${substr(var.environment, 0, 1)}cat"
+    cart     = "${substr(var.environment, 0, 1)}crt"
+    checkout = "${substr(var.environment, 0, 1)}chk"
+    orders   = "${substr(var.environment, 0, 1)}ord"
+    ui       = "${substr(var.environment, 0, 1)}ui"
+    admin    = "${substr(var.environment, 0, 1)}adm"
+  }
 }
 
 # ─── Data source: ECR repositories (creados por deploy.yml) ────────────────────
@@ -235,7 +246,7 @@ resource "aws_lb" "main" {
 resource "aws_lb_target_group" "services" {
   for_each = toset(local.services)
 
-  name        = "rs-${var.environment}-${each.key}"
+  name_prefix = local.service_tg_prefix[each.key]
   port        = local.service_internal_ports[each.key]
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
