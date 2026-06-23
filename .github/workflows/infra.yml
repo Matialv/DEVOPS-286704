@@ -94,13 +94,11 @@ jobs:
             -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}" \
             -out=tfplan
 
-      - name: Upload Terraform Plan
+      - name: Upload Lambda Package
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-${{ github.event.inputs.environment || 'dev' }}
-          path: |
-            infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
-            infrastructure/modules/lambda/ecr_scan_notifier.zip
+          name: lambda-package-${{ github.event.inputs.environment || 'dev' }}
+          path: infrastructure/modules/lambda/ecr_scan_notifier.zip
 
   # ─────────────────────────────────────────────
   # 3. TERRAFORM APPLY
@@ -132,11 +130,11 @@ jobs:
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform init
 
-      - name: Download Terraform Plan
+      - name: Download Lambda Package
         uses: actions/download-artifact@v4
         with:
-          name: tfplan-${{ github.event.inputs.environment || 'dev' }}
-          path: .
+          name: lambda-package-${{ github.event.inputs.environment || 'dev' }}
+          path: infrastructure/modules/lambda/
 
       - name: Manual Approval (solo prod)
         if: github.event.inputs.environment == 'prod'
@@ -148,7 +146,12 @@ jobs:
 
       - name: Terraform Apply
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform apply -auto-approve tfplan
+        env:
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file="${ENV}.tfvars" \
+            -var="sns_email=${{ secrets.SNS_ALERT_EMAIL }}"
 
       - name: Get ALB URL from Terraform output
         id: tf-output
