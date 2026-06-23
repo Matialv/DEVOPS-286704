@@ -22,3 +22,13 @@ output "log_group_names" {
   description = "Nombres de los CloudWatch Log Groups por servicio"
   value       = { for k, v in aws_cloudwatch_log_group.services : k => v.name }
 }
+
+output "alb_arn_suffix" {
+  description = "ARN suffix del ALB para métricas CloudWatch"
+  value       = aws_lb.main.arn_suffix
+}
+
+output "cluster_name" {
+  description = "Nombre del cluster ECS"
+  value       = aws_ecs_cluster.main.name
+}

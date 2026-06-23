@@ -1,3 +1,73 @@
 {
-  "widgets": []
+  "_comment": "Reference copy — dashboard is managed by Terraform in infrastructure/modules/observability/main.tf",
+  "widgets": [
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ECS CPU Utilization por servicio",
+        "view": "timeSeries",
+        "period": 300,
+        "stat": "Average",
+        "metrics": [
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-catalog"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-cart"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-checkout"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-orders"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-ui"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-admin"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB Request Count + 5xx Errors",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "<alb-arn-suffix>"],
+          ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "<alb-arn-suffix>"],
+          ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", "<alb-arn-suffix>"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB Latencia p99 (segundos)",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "p99",
+        "metrics": [
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "<alb-arn-suffix>"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ECS Memory Utilization por servicio",
+        "view": "timeSeries",
+        "period": 300,
+        "stat": "Average",
+        "metrics": [
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-catalog"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-cart"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-checkout"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-orders"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-ui"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-admin"]
+        ]
+      }
+    }
+  ]
 }

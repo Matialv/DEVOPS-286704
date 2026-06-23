@@ -65,10 +65,18 @@ module "ecs" {
   tags                 = local.common_tags
 }
 
-# TODO: Implementar módulo lambda para alertas de ECR scanning
-# module "lambda" {
-#   source      = "../../modules/lambda"
-#   environment = var.environment
-#   sns_email   = var.sns_email
-#   tags        = local.common_tags
-# }
+module "lambda" {
+  source      = "../../modules/lambda"
+  environment = var.environment
+  sns_email   = var.sns_email
+  tags        = local.common_tags
+}
+
+module "observability" {
+  source          = "../../modules/observability"
+  environment     = var.environment
+  sns_topic_arn   = module.lambda.sns_topic_arn
+  alb_arn_suffix  = module.ecs.alb_arn_suffix
+  ecs_cluster_name = module.ecs.cluster_name
+  tags            = local.common_tags
+}
