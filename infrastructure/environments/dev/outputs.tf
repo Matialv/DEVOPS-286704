@@ -3,11 +3,6 @@ output "alb_dns_name" {
   value       = module.ecs.alb_dns_name
 }
 
-output "ecr_repository_urls" {
-  description = "URLs de repositorios ECR por servicio"
-  value       = module.ecr.repository_urls
-}
-
 output "db_secret_arn" {
   description = "ARN del secreto de RDS"
   value       = module.rds.db_secret_arn
