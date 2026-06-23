@@ -1,29 +1,7 @@
--- The 'orders' database is created by POSTGRES_DB env var
--- This script creates catalogdb, cartdb and grants permissions
+-- All services use the default 'retailstore' database created by RDS
+-- This script only creates service tables
 
-CREATE DATABASE catalogdb;
-CREATE DATABASE cartdb;
-
-GRANT ALL PRIVILEGES ON DATABASE catalogdb TO retailstore;
-GRANT ALL PRIVILEGES ON DATABASE cartdb TO retailstore;
-GRANT ALL PRIVILEGES ON DATABASE orders TO retailstore;
-
-\c orders
-GRANT ALL ON SCHEMA public TO retailstore;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO retailstore;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO retailstore;
-
-\c catalogdb
-GRANT ALL ON SCHEMA public TO retailstore;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO retailstore;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO retailstore;
-
-\c cartdb
-GRANT ALL ON SCHEMA public TO retailstore;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO retailstore;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO retailstore;
-
-CREATE TABLE cart_items (
+CREATE TABLE IF NOT EXISTS cart_items (
     customer_id VARCHAR(255) NOT NULL,
     item_id     VARCHAR(255) NOT NULL,
     quantity    INTEGER      NOT NULL,

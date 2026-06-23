@@ -145,9 +145,9 @@ func buildDSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		host, port,
-		getEnv("RETAIL_ORDERS_PERSISTENCE_USERNAME", "retail_user"),
+		getEnv("RETAIL_ORDERS_PERSISTENCE_USERNAME", "retailstore"),
 		os.Getenv("RETAIL_ORDERS_PERSISTENCE_PASSWORD"),
-		getEnv("RETAIL_ORDERS_PERSISTENCE_NAME", "orders"),
+		getEnv("RETAIL_ORDERS_PERSISTENCE_NAME", "retailstore"),
 	)
 }
 
