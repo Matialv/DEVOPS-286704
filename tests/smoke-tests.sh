@@ -36,7 +36,7 @@ echo ""
 
 echo "▶ Catalog Service (Go - puerto 8001)"
 check "Catalog health"    "$BASE_URL:8001/health"
-check "Catalog products"  "$BASE_URL:8001/products"
+check "Catalog products"  "$BASE_URL:8001/catalog/products"
 
 echo ""
 echo "▶ Cart Service (Python - puerto 8002)"
