@@ -72,4 +72,4 @@ module "ecs" {
 #   sns_email   = var.sns_email
 #   tags        = local.common_tags
 # }
-}
+
