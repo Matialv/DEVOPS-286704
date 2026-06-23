@@ -2,9 +2,9 @@
 # Espera hasta que todos los servicios respondan HTTP 200
 # Uso: ./tests/wait-for-services.sh [base-url] [timeout-segundos]
 
-BASE_URL="${1:-http://localhost}"
-MAX_WAIT="${2:-120}"
-INTERVAL=5
+BASE_URL="${1:-http://retailstore-dev-alb-1858888559.us-east-1.elb.amazonaws.com}"
+MAX_WAIT="${2:-300}"
+INTERVAL=10
 ELAPSED=0
 
 ENDPOINTS=(
@@ -12,7 +12,7 @@ ENDPOINTS=(
   "$BASE_URL:8002/health"
   "$BASE_URL:8003/health"
   "$BASE_URL:8004/health"
-  "$BASE_URL:3000"
+  "$BASE_URL"
   "$BASE_URL:3001"
 )
 

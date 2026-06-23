@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-BASE_URL="${1:-http://localhost}"
+BASE_URL="${1:-http://retailstore-dev-alb-1858888559.us-east-1.elb.amazonaws.com}"
 TIMEOUT=10
 PASS=0
 FAIL=0
@@ -41,7 +41,7 @@ check "Catalog products"  "$BASE_URL:8001/products"
 echo ""
 echo "▶ Cart Service (Python - puerto 8002)"
 check "Cart health"       "$BASE_URL:8002/health"
-check "Cart endpoint"     "$BASE_URL:8002/cart/smoke-test-user"
+check "Cart endpoint"     "$BASE_URL:8002/carts/smoke-test-user"
 
 echo ""
 echo "▶ Checkout Service (NestJS - puerto 8003)"
@@ -53,8 +53,8 @@ check "Orders health"     "$BASE_URL:8004/health"
 check "Orders list"       "$BASE_URL:8004/orders"
 
 echo ""
-echo "▶ UI Service (Express - puerto 3000)"
-check "UI homepage"       "$BASE_URL:3000" "200"
+echo "▶ UI Service (Express - puerto 80)"
+check "UI homepage"       "$BASE_URL" "200"
 
 echo ""
 echo "▶ Admin Service (Express - puerto 3001)"
