@@ -2,7 +2,7 @@
 FROM python:3.13-slim AS builder
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
+RUN pip install --no-cache-dir "pip==25.1.1" \
  && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: runtime
