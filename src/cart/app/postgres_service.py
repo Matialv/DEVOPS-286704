@@ -13,8 +13,22 @@ class PostgresCartService(CartService):
             dbname=settings.postgres_db,
             user=settings.postgres_user,
             password=settings.postgres_password,
+            sslmode="allow",
         )
         self._conn.autocommit = True
+        self._ensure_schema()
+
+    def _ensure_schema(self) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS cart_items (
+                    customer_id VARCHAR(255) NOT NULL,
+                    item_id     VARCHAR(255) NOT NULL,
+                    quantity    INTEGER      NOT NULL,
+                    unit_price  INTEGER      NOT NULL,
+                    PRIMARY KEY (customer_id, item_id)
+                )
+            """)
 
     def get(self, customer_id: str) -> Cart:
         return Cart(customerId=customer_id, items=self.get_items(customer_id))

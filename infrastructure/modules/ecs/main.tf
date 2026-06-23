@@ -168,6 +168,20 @@ resource "aws_ecs_task_definition" "services" {
           value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
         }
       ] : [],
+      each.key == "checkout" ? [
+        {
+          name  = "RETAIL_CHECKOUT_PERSISTENCE_PROVIDER"
+          value = "redis"
+        },
+        {
+          name  = "RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL"
+          value = "redis://${var.redis_endpoint}"
+        },
+        {
+          name  = "RETAIL_CHECKOUT_ENDPOINTS_ORDERS"
+          value = "http://${aws_lb.main.dns_name}:8004"
+        }
+      ] : [],
       each.key == "ui" ? [
         {
           name  = "RETAIL_UI_ENDPOINTS_CATALOG"
