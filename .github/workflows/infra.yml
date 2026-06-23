@@ -140,7 +140,7 @@ jobs:
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
-          approvers: ${{ vars.PROD_APPROVERS }}
+          approvers: Matialv15,MA286704
           minimum-approvals: 1
 
       - name: Terraform Apply
