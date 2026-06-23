@@ -9,14 +9,14 @@ data "aws_secretsmanager_secret_version" "db_credentials" {
 locals {
   services = ["catalog", "cart", "checkout", "orders", "ui", "admin"]
 
-  # Puertos internos donde escuchan los containers
+  # Puertos internos donde escuchan los containers (segun ENV PORT del Dockerfile)
   service_internal_ports = {
     catalog  = 8080
-    cart     = 8080
-    checkout = 3000
+    cart     = 8002
+    checkout = 8003
     orders   = 8080
-    ui       = 8080
-    admin    = 3000
+    ui       = 3000
+    admin    = 3001
   }
 
   # Puertos externos en el ALB
@@ -90,6 +90,10 @@ resource "aws_ecs_task_definition" "services" {
 
     environment = concat(
       [
+        {
+          name  = "PORT"
+          value = tostring(local.service_internal_ports[each.key])
+        },
         {
           name  = "REDIS_URL"
           value = "redis://${var.redis_endpoint}"
