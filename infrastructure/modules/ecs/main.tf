@@ -251,6 +251,10 @@ resource "aws_lb_target_group" "services" {
     Name    = "rs-${var.environment}-${each.key}"
     Service = each.key
   })
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_lb_listener" "http" {
@@ -281,6 +285,10 @@ resource "aws_lb_listener" "service_ports" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.services[each.key].arn
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
