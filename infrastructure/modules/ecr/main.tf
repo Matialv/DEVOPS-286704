@@ -1,3 +1,19 @@
+terraform {
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+  }
+  backend "s3" {
+    key     = "ecr/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+  default_tags { tags = var.tags }
+}
+
 # ─── Repositorios ECR por servicio ───────────────────────────────────────────
 
 resource "aws_ecr_repository" "services" {

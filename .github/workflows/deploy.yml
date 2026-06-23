@@ -157,27 +157,14 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Terraform Init (ECR module, sin backend)
-        working-directory: infrastructure/modules/ecr
-        run: terraform init -backend=false
-
-      - name: Import existing ECR repositories
+      - name: Terraform Init (ECR module, con backend S3)
         working-directory: infrastructure/modules/ecr
         env:
-          TF_VAR_environment: ${{ github.event.inputs.environment || 'dev' }}
-          TF_VAR_services: '["catalog", "cart", "checkout", "orders", "ui", "admin"]'
+          ENV: ${{ github.event.inputs.environment || 'dev' }}
         run: |
-          for svc in catalog cart checkout orders ui admin; do
-            ECR_ADDR="aws_ecr_repository.services[\"${svc}\"]"
-            if ! terraform state show "$ECR_ADDR" > /dev/null 2>&1; then
-              if aws ecr describe-repositories --repository-names "retailstore-${svc}" --region us-east-1 > /dev/null 2>&1; then
-                echo "📥 Importando repositorio existente: retailstore-${svc}"
-                terraform import "$ECR_ADDR" "retailstore-${svc}"
-              fi
-            else
-              echo "✅ Repositorio ya en state: retailstore-${svc}"
-            fi
-          done
+          terraform init \
+            -backend-config="bucket=retailstore-${ENV}-terraform-state" \
+            -reconfigure
 
       - name: Terraform Plan (ECR)
         working-directory: infrastructure/modules/ecr
