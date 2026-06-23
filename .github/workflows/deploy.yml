@@ -22,6 +22,7 @@ on:
 jobs:
   # ─────────────────────────────────────────────
   # 1. DETECCIÓN DE SECRETOS
+  
   # ─────────────────────────────────────────────
   secret-scan:
     name: Secret Detection (Gitleaks)
