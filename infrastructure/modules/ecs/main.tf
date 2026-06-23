@@ -19,6 +19,13 @@ locals {
   }
 }
 
+# ─── Data source: ECR repositories (creados por deploy.yml) ────────────────────
+
+data "aws_ecr_repository" "services" {
+  for_each = toset(local.services)
+  name     = "retailstore-${each.key}"
+}
+
 
 # ─── ECS Cluster ─────────────────────────────────────────────────────────────
 
@@ -62,7 +69,7 @@ resource "aws_ecs_task_definition" "services" {
 
   container_definitions = jsonencode([{
     name      = each.key
-    image     = "${var.ecr_repository_urls[each.key]}:${var.image_tag}"
+    image     = "${data.aws_ecr_repository.services[each.key].repository_url}:${var.image_tag}"
     essential = true
 
     portMappings = [{

@@ -31,12 +31,6 @@ module "networking" {
   tags        = local.common_tags
 }
 
-module "ecr" {
-  source      = "../../modules/ecr"
-  environment = var.environment
-  tags        = local.common_tags
-}
-
 module "rds" {
   source             = "../../modules/rds"
   environment        = var.environment
@@ -64,7 +58,6 @@ module "ecs" {
   private_subnet_ids   = module.networking.private_subnet_ids
   sg_alb_id            = module.networking.sg_alb_id
   sg_ecs_id            = module.networking.sg_ecs_id
-  ecr_repository_urls  = module.ecr.repository_urls
   image_tag            = var.image_tag
   desired_count        = var.ecs_desired_count
   db_secret_arn        = module.rds.db_secret_arn

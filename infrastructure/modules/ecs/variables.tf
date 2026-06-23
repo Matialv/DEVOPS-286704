@@ -28,11 +28,6 @@ variable "sg_ecs_id" {
   type        = string
 }
 
-variable "ecr_repository_urls" {
-  description = "URLs de los repositorios ECR por servicio"
-  type        = map(string)
-}
-
 variable "image_tag" {
   description = "Tag de imagen a desplegar (formato: <ambiente>-<sha>)"
   type        = string
