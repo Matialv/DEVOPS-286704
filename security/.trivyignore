@@ -2,5 +2,5 @@
 # Formato: CVE-XXXX-XXXXX  # Justificación
 #
 # Excepciones Activas:
-CVE-2026-33816  # pgx v5.6.0 - fix requiere Go 1.25+, no compatible con la versión actual del proyecto
-CVE-2026-33186  # grpc v1.73.0 - fix requiere v1.79.3, pendiente de actualización de dependencias
+# (ninguna) - CVE-2026-33816 y CVE-2026-33186 resueltos actualizando dependencias
+#   pgx/v5 v5.6.0 -> v5.9.0 (orders y catalog), grpc v1.73.0 -> v1.79.3 (catalog)

@@ -106,16 +106,11 @@ jobs:
     name: Approve Production Infra
     runs-on: ubuntu-latest
     needs: terraform-plan
-    permissions:
-      issues: write
+    if: github.event.inputs.environment == 'prod'
+    environment: prod
     steps:
-      - name: Manual Approval (solo prod)
-        if: github.event.inputs.environment == 'prod'
-        uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ secrets.GITHUB_TOKEN }}
-          approvers: Matialv15,MA286704
-          minimum-approvals: 1
+      - name: Approval gate (native GitHub environment)
+        run: echo "Production infra deployment approved"
 
   # ─────────────────────────────────────────────
   # 4. TERRAFORM APPLY
@@ -124,6 +119,7 @@ jobs:
     name: Terraform Apply - ${{ github.event.inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
     needs: approve-prod
+    if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') }}
     environment: "${{ github.event.inputs.environment || 'dev' }}"
     permissions:
       contents: read
