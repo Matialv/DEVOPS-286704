@@ -141,6 +141,24 @@ resource "aws_ecs_task_definition" "services" {
           name  = "CART_POSTGRES_USER"
           value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
         }
+      ] : [],
+      each.key == "ui" ? [
+        {
+          name  = "RETAIL_UI_ENDPOINTS_CATALOG"
+          value = "http://${aws_lb.main.dns_name}:8001"
+        },
+        {
+          name  = "RETAIL_UI_ENDPOINTS_CARTS"
+          value = "http://${aws_lb.main.dns_name}:8002"
+        },
+        {
+          name  = "RETAIL_UI_ENDPOINTS_CHECKOUT"
+          value = "http://${aws_lb.main.dns_name}:8003"
+        },
+        {
+          name  = "RETAIL_UI_ENDPOINTS_ORDERS"
+          value = "http://${aws_lb.main.dns_name}:8004"
+        }
       ] : []
     )
 
