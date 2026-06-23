@@ -9,12 +9,23 @@ data "aws_secretsmanager_secret_version" "db_credentials" {
 locals {
   services = ["catalog", "cart", "checkout", "orders", "ui", "admin"]
 
-  service_ports = {
+  # Puertos internos donde escuchan los containers
+  service_internal_ports = {
+    catalog  = 8080
+    cart     = 8080
+    checkout = 3000
+    orders   = 8080
+    ui       = 8080
+    admin    = 3000
+  }
+
+  # Puertos externos en el ALB
+  service_alb_ports = {
     catalog  = 8001
     cart     = 8002
     checkout = 8003
     orders   = 8004
-    ui       = 3000
+    ui       = 80
     admin    = 3001
   }
 }
@@ -73,7 +84,7 @@ resource "aws_ecs_task_definition" "services" {
     essential = true
 
     portMappings = [{
-      containerPort = local.service_ports[each.key]
+      containerPort = local.service_internal_ports[each.key]
       protocol      = "tcp"
     }]
 
@@ -221,7 +232,7 @@ resource "aws_lb_target_group" "services" {
   for_each = toset(local.services)
 
   name        = "rs-${var.environment}-${each.key}"
-  port        = local.service_ports[each.key]
+  port        = local.service_internal_ports[each.key]
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
@@ -253,14 +264,14 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# ─── Additional listeners per service (puerto interno = puerto externo en ALB) ───
+# ─── Additional listeners per service (puertos externos en el ALB) ───
 resource "aws_lb_listener" "service_ports" {
   for_each = {
-    catalog  = 8001
-    cart     = 8002
-    checkout = 8003
-    orders   = 8004
-    admin    = 3001
+    catalog  = local.service_alb_ports["catalog"]
+    cart     = local.service_alb_ports["cart"]
+    checkout = local.service_alb_ports["checkout"]
+    orders   = local.service_alb_ports["orders"]
+    admin    = local.service_alb_ports["admin"]
   }
 
   load_balancer_arn = aws_lb.main.arn
@@ -293,10 +304,13 @@ resource "aws_ecs_service" "services" {
   load_balancer {
     target_group_arn = aws_lb_target_group.services[each.key].arn
     container_name   = each.key
-    container_port   = local.service_ports[each.key]
+    container_port   = local.service_internal_ports[each.key]
   }
 
-  depends_on = [aws_lb_listener.http]
+  depends_on = concat(
+    [aws_lb_listener.http],
+    [for listener in aws_lb_listener.service_ports : listener]
+  )
 
   tags = merge(var.tags, {
     Name    = "retailstore-${var.environment}-${each.key}"
