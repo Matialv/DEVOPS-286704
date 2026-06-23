@@ -187,6 +187,7 @@ jobs:
     name: Build & Scan Images
     runs-on: ubuntu-latest
     needs: bootstrap-ecr
+    environment: ${{ github.event.inputs.environment || 'dev' }}
     permissions:
       contents: read
     strategy:
@@ -219,13 +220,13 @@ jobs:
           IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
           docker build \
-            -t $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG \
+            -t $ECR_REGISTRY/retailstore-${{ github.event.inputs.environment || 'dev' }}-${{ matrix.service }}:$IMAGE_TAG \
             src/${{ matrix.service }}/
 
       - name: Trivy - Scan image for CRITICAL (bloqueante)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}"
+          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ github.event.inputs.environment || 'dev' }}-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}"
           severity: CRITICAL
           exit-code: "1"
           ignore-unfixed: true
@@ -235,7 +236,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
-          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}"
+          image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ github.event.inputs.environment || 'dev' }}-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}"
           severity: HIGH
           exit-code: "0"
           ignore-unfixed: true
@@ -243,7 +244,7 @@ jobs:
 
       - name: Validate image metadata (USER, SIZE)
         env:
-          IMAGE: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
+          IMAGE: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ github.event.inputs.environment || 'dev' }}-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
           # Validar que la imagen no corre como root
           USER=$(docker inspect "${{ env.IMAGE }}" --format='{{.Config.User}}')
@@ -265,7 +266,7 @@ jobs:
 
       - name: Scan image layers for secrets with Gitleaks
         env:
-          IMAGE: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
+          IMAGE: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ github.event.inputs.environment || 'dev' }}-${{ matrix.service }}:${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         continue-on-error: true
         run: |
           echo "🔍 Escaneando layers de imagen con Gitleaks..."
@@ -273,12 +274,20 @@ jobs:
             --source /dev/stdin --no-git -f json 2>/dev/null || true
           echo "✅ Scan completado"
 
+      - name: Manual Approval (solo prod)
+        if: github.event.inputs.environment == 'prod'
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: ${{ vars.PROD_APPROVERS }}
+          minimum-approvals: 1
+
       - name: Push image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.event.inputs.environment || 'dev' }}-${{ github.sha }}
         run: |
-          docker push $ECR_REGISTRY/retailstore-${{ matrix.service }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/retailstore-${{ github.event.inputs.environment || 'dev' }}-${{ matrix.service }}:$IMAGE_TAG
 
   # ─────────────────────────────────────────────
   # 6. ACTUALIZAR .tfvars CON EL NUEVO IMAGE_TAG

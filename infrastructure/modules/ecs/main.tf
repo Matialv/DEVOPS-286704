@@ -45,7 +45,7 @@ locals {
 
 data "aws_ecr_repository" "services" {
   for_each = toset(local.services)
-  name     = "retailstore-${each.key}"
+  name     = "retailstore-${var.environment}-${each.key}"
 }
 
 

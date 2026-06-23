@@ -19,7 +19,7 @@ provider "aws" {
 resource "aws_ecr_repository" "services" {
   for_each = toset(var.services)
 
-  name                 = "retailstore-${each.key}"
+  name                 = "retailstore-${var.environment}-${each.key}"
   image_tag_mutability = "IMMUTABLE" # tag inmutable: no se puede sobreescribir un tag existente
 
   image_scanning_configuration {
@@ -31,7 +31,7 @@ resource "aws_ecr_repository" "services" {
   }
 
   tags = merge(var.tags, {
-    Name        = "retailstore-${each.key}"
+    Name        = "retailstore-${var.environment}-${each.key}"
     Service     = each.key
     Environment = var.environment
   })
