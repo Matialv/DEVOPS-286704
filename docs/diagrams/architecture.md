@@ -53,13 +53,13 @@ graph LR
 
             subgraph PRIV["Subnets Privadas (AZ-1 / AZ-2)"]
 
-                subgraph ECS["🐳 ECS Cluster — AWS Fargate"]
+                subgraph ECS["🐳 ECS Cluster — AWS Fargate (puerto interno del container)"]
                     SVC_UI["ui\nExpress :3000"]
                     SVC_ADMIN["admin\nExpress :3001"]
-                    SVC_CATALOG["catalog\nGo :8001"]
+                    SVC_CATALOG["catalog\nGo :8080"]
                     SVC_CART["cart\nPython :8002"]
                     SVC_CHECKOUT["checkout\nNestJS :8003"]
-                    SVC_ORDERS["orders\nGo :8004"]
+                    SVC_ORDERS["orders\nGo :8080"]
                 end
 
                 subgraph DATA["🗄️ Capa de Datos"]
@@ -74,7 +74,7 @@ graph LR
     USER & ADMIN_USER -->|"HTTP"| IGW
     IGW --> ALB
     
-    ALB -->|":3000"| SVC_UI
+    ALB -->|":80"| SVC_UI
     ALB -->|":3001"| SVC_ADMIN
     ALB -->|":8001"| SVC_CATALOG
     ALB -->|":8002"| SVC_CART
@@ -134,14 +134,22 @@ graph LR
 
 ### Microservicios (ECS Fargate)
 
-| Servicio | Runtime | Puerto | Función |
-|---------|---------|--------|---------|
-| ui | Express / Node.js | 3000 | Frontend de clientes |
-| admin | Express / Node.js | 3001 | Panel de administración |
-| catalog | Go | 8001 | Catálogo de productos |
-| cart | Python / FastAPI | 8002 | Carrito de compras |
-| checkout | NestJS | 8003 | Proceso de pago |
-| orders | Go | 8004 | Gestión de órdenes |
+> **Puerto interno** = donde escucha el container (`PORT` env) y al que apunta el target group.
+> **Puerto ALB** = listener público en el balanceador. El target group siempre usa el puerto interno.
+> Fuente: `infrastructure/modules/ecs/main.tf` (`service_internal_ports` / `service_alb_ports`).
+
+| Servicio | Runtime | Puerto interno (container = target group) | Puerto ALB (externo) | Función |
+|---------|---------|-------------------------------------------|----------------------|---------|
+| ui | Express / Node.js | 3000 | **80** (listener default) | Frontend de clientes + proxy a backends |
+| admin | Express / Node.js | 3001 | 3001 | Panel de administración |
+| catalog | Go | 8080 | 8001 | Catálogo de productos |
+| cart | Python / FastAPI | 8002 | 8002 | Carrito de compras |
+| checkout | NestJS | 8003 | 8003 | Proceso de pago |
+| orders | Go | 8080 | 8004 | Gestión de órdenes |
+
+**Flujo de tráfico:** `Usuario → ALB:<puerto externo> → Target Group (port = puerto interno) → Container:<puerto interno>`.
+La **UI** (servida en ALB :80) hace de proxy reverso a los backends vía ALB DNS: `/api/catalog`→:8001, `/api/carts`→:8002, `/api/checkout`→:8003, `/api/orders`→:8004.
+Ver diagrama detallado de puertos en [`load-balancer-ports.drawio`](load-balancer-ports.drawio).
 
 ### Datos
 

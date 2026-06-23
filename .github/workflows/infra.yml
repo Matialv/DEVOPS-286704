@@ -79,6 +79,11 @@ jobs:
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         run: terraform init
 
+      - name: Package Lambda
+        run: |
+          cd infrastructure/modules/lambda/src
+          zip -j ../ecr_scan_notifier.zip ecr_scan_notifier.py
+
       - name: Terraform Plan
         working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
         env:
@@ -93,7 +98,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-${{ github.event.inputs.environment || 'dev' }}
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+          path: |
+            infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+            infrastructure/modules/lambda/ecr_scan_notifier.zip
 
   # ─────────────────────────────────────────────
   # 3. TERRAFORM APPLY
@@ -129,7 +136,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tfplan-${{ github.event.inputs.environment || 'dev' }}
-          path: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}/
+          path: .
 
       - name: Manual Approval (solo prod)
         if: github.event.inputs.environment == 'prod'

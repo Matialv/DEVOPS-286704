@@ -2,6 +2,8 @@ locals {
   services = ["catalog", "cart", "checkout", "orders", "ui", "admin"]
 }
 
+data "aws_region" "current" {}
+
 # ─── CloudWatch Dashboard ─────────────────────────────────────────────────────
 
 resource "aws_cloudwatch_dashboard" "main" {
@@ -16,6 +18,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           title  = "ECS CPU Utilization por servicio"
+          region = data.aws_region.current.name
           view   = "timeSeries"
           period = 300
           stat   = "Average"
@@ -37,6 +40,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           title  = "ECS Memory Utilization por servicio"
+          region = data.aws_region.current.name
           view   = "timeSeries"
           period = 300
           stat   = "Average"
@@ -58,6 +62,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           title  = "ALB Request Count"
+          region = data.aws_region.current.name
           view   = "timeSeries"
           period = 60
           stat   = "Sum"
@@ -75,6 +80,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           title  = "ALB Target Response Time (ms)"
+          region = data.aws_region.current.name
           view   = "timeSeries"
           period = 60
           stat   = "p99"
@@ -90,6 +96,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 4
         properties = {
           title  = "ALB Healthy vs Unhealthy Hosts"
+          region = data.aws_region.current.name
           view   = "singleValue"
           period = 60
           stat   = "Average"
