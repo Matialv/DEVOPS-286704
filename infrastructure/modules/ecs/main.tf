@@ -307,10 +307,10 @@ resource "aws_ecs_service" "services" {
     container_port   = local.service_internal_ports[each.key]
   }
 
-  depends_on = concat(
-    [aws_lb_listener.http],
-    [for listener in aws_lb_listener.service_ports : listener]
-  )
+  depends_on = [
+    aws_lb_listener.http,
+    aws_lb_listener.service_ports
+  ]
 
   tags = merge(var.tags, {
     Name    = "retailstore-${var.environment}-${each.key}"
