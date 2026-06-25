@@ -6,6 +6,8 @@ on:
     paths:
       - 'infrastructure/**'
       - '.github/workflows/infra.yml'
+  pull_request:
+    branches: [main, main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
@@ -131,11 +133,10 @@ jobs:
     name: Approve Production Infra
     runs-on: ubuntu-latest
     needs: [terraform-plan, detect-environment]
-    if: needs.detect-environment.outputs.environment == 'prod'
+    if: |
+      needs.detect-environment.outputs.environment == 'prod' && 
+      (github.ref == 'refs/heads/main-prod' || github.event_name == 'workflow_dispatch')
     environment: prod
-    steps:
-      - name: Approval gate (native GitHub environment)
-        run: echo "Production infra deployment approved"
 
   # ─────────────────────────────────────────────
   # 4. TERRAFORM APPLY
