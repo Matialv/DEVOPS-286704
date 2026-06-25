@@ -5,7 +5,6 @@ on:
     branches: [main, main-test, main-prod]
     paths:
       - 'infrastructure/**'
-      - '.github/workflows/infra.yml'
   pull_request:
     branches: [main, main-prod, main-test]
   workflow_dispatch:
