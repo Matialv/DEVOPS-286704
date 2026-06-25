@@ -2,12 +2,14 @@ name: App Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, main-prod, main-test]
     paths:
       - 'src/**'
       - 'security/**'
       - 'tests/**'
       - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [main, main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
@@ -139,7 +141,7 @@ jobs:
     name: Approve Production Deploy
     runs-on: ubuntu-latest
     needs: [sast, sca]
-    if: github.event.inputs.environment == 'prod'
+    if: github.ref == 'refs/heads/main-prod'
     environment: prod
     steps:
       - name: Approval gate (native GitHub environment)
