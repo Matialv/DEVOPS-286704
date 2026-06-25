@@ -182,8 +182,7 @@ jobs:
         env:
           ENV: ${{ needs.detect-environment.outputs.environment }}
         run: |
-          terraform apply -auto-approve \
-            -var-file="${ENV}.tfvars"
+          terraform apply -auto-approve -var-file="${ENV}.tfvars"
 
       - name: Get ALB URL from Terraform output
         id: tf-output
