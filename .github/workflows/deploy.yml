@@ -179,7 +179,7 @@ jobs:
   bootstrap-ecr:
     name: Bootstrap ECR Repositories
     runs-on: ubuntu-latest
-    needs: [approve-prod]
+    needs: [approve-prod, detect-environment]
     if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') }}
     permissions:
       contents: read
