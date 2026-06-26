@@ -212,6 +212,10 @@ resource "aws_ecs_task_definition" "services" {
         {
           name  = "DB_USER"
           value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
+        },
+        {
+          name  = "DB_NAME"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
         }
       ] : []
     )

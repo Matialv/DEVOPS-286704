@@ -17,14 +17,15 @@ const DB_PORT      = parseInt(process.env.DB_PORT    || '5432');
 const DB_USER      = process.env.DB_USER             || 'retailstore';
 const DB_PASS      = process.env.DB_PASSWORD         || 'retailpassword';
 const DB_SSL       = process.env.DB_SSL              !== 'false';
+const DB_NAME      = process.env.DB_NAME             || 'retailstore';
 
 const poolConfig = {
   host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
   ...(DB_SSL ? { ssl: { rejectUnauthorized: false } } : {}),
 };
 
-const catalogDb = new Pool({ ...poolConfig, database: 'catalogdb' });
-const ordersDb  = new Pool({ ...poolConfig, database: 'orders' });
+const catalogDb = new Pool({ ...poolConfig, database: DB_NAME });
+const ordersDb  = new Pool({ ...poolConfig, database: DB_NAME });
 
 // ── Auth middleware ────────────────────────────────────────────────────────
 
