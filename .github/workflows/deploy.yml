@@ -346,12 +346,13 @@ jobs:
         env:
           ENV: ${{ needs.detect-environment.outputs.environment }}
           IMAGE_TAG: ${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add "infrastructure/environments/${ENV}/${ENV}.tfvars"
           git commit -m "Deploy: Update ${ENV}.tfvars image_tag to ${IMAGE_TAG}" --allow-empty
-          git push
+          git push origin HEAD:${BRANCH}
 
       - name: Trigger Infra Pipeline
         env:
