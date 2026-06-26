@@ -5,4 +5,4 @@ rds_instance_class = "db.t3.micro"
 multi_az           = false
 redis_node_type    = "cache.t3.micro"
 sns_email          = "matialv15@gmail.com"
-image_tag          = "dev-79ea399589b7f635f0c4a9133e9239991460c2bc"
+image_tag          = "dev-dc6f5dc9e5f6be97068be0b7ba5775f071e24508"

@@ -169,7 +169,10 @@ jobs:
         with:
           name: lambda-package-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/modules/lambda/ecr_scan_notifier.zip
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
   # ─────────────────────────────────────────────
   # 4. APROBACIÓN MANUAL (solo prod)
   # ─────────────────────────────────────────────
