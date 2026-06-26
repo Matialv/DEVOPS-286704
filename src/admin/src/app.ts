@@ -14,7 +14,7 @@ const ADMIN_USER   = process.env.ADMIN_USERNAME      || 'admin';
 const ADMIN_PASS   = process.env.ADMIN_PASSWORD      || 'admin';
 const DB_HOST      = process.env.DB_HOST             || 'db';
 const DB_PORT      = parseInt(process.env.DB_PORT    || '5432');
-const DB_USER      = process.env.DB_USER             || 'retail_user';
+const DB_USER      = process.env.DB_USER             || 'retailstore';
 const DB_PASS      = process.env.DB_PASSWORD         || 'retailpassword';
 
 const catalogDb = new Pool({ host: DB_HOST, port: DB_PORT, database: 'catalogdb', user: DB_USER, password: DB_PASS });
