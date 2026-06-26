@@ -160,17 +160,17 @@ jobs:
   # ─────────────────────────────────────────────
   # 4. APROBACIÓN MANUAL (solo prod)
   # ─────────────────────────────────────────────
-  approve-prod:
-    name: Approve Production Deploy
-    runs-on: ubuntu-latest
-    needs: [sast, sca, detect-environment]
-    if: |
-      needs.detect-environment.outputs.environment == 'prod' &&
-      (github.ref == 'refs/heads/main-prod' || github.event_name == 'workflow_dispatch')
-    environment: prod
-    steps:
-      - name: Approval gate (native GitHub environment)
-        run: echo "Production deployment approved"
+  #approve-prod:
+  #  name: Approve Production Deploy
+  #  runs-on: ubuntu-latest
+  #  needs: [sast, sca, detect-environment]
+  #  if: |
+  #    needs.detect-environment.outputs.environment == 'prod' &&
+  #    (github.ref == 'refs/heads/main-prod' || github.event_name == 'workflow_dispatch')
+  #  environment: prod
+  #  steps:
+  #    - name: Approval gate (native GitHub environment)
+  #      run: echo "Production deployment approved"
   # ─────────────────────────────────────────────
   # 5. BOOTSTRAP ECR (CREAR REPOSITORIOS)
   # ─────────────────────────────────────────────
