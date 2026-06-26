@@ -163,8 +163,10 @@ jobs:
   approve-prod:
     name: Approve Production Deploy
     runs-on: ubuntu-latest
-    needs: [sast, sca]
-    if: github.ref == 'refs/heads/main-prod'
+    needs: [sast, sca, detect-environment]
+    if: |
+      needs.detect-environment.outputs.environment == 'prod' &&
+      (github.ref == 'refs/heads/main-prod' || github.event_name == 'workflow_dispatch')
     environment: prod
     steps:
       - name: Approval gate (native GitHub environment)
@@ -356,6 +358,7 @@ jobs:
       - name: Trigger Infra Pipeline
         env:
           ENV: ${{ needs.detect-environment.outputs.environment }}
+          BRANCH: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
         run: |
-          gh workflow run infra.yml -f environment="${ENV}"
+          gh workflow run infra.yml -r "$BRANCH" -f environment="${ENV}"
