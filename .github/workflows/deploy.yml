@@ -351,12 +351,12 @@ jobs:
           git config user.email "github-actions@github.com"
           git add "infrastructure/environments/${ENV}/${ENV}.tfvars"
           git commit -m "Deploy: Update ${ENV}.tfvars image_tag to ${IMAGE_TAG}" --allow-empty
-          git push origin HEAD:${{ github.ref_name }}
-
-      - name: Trigger Infra Pipeline
-        env:
-          ENV: ${{ needs.detect-environment.outputs.environment }}
-          BRANCH: ${{ github.ref_name }}
-          GH_TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
-        run: |
-          gh workflow run infra.yml -r "$BRANCH" -f environment="${ENV}"
+          
+          # Determine the correct branch to push to
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TARGET_BRANCH="${{ github.base_ref }}"
+          else
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          
+          git push origin HEAD:refs/heads/${TARGET_BRANCH}
