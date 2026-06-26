@@ -351,7 +351,7 @@ jobs:
           git config user.email "github-actions@github.com"
           git add "infrastructure/environments/${ENV}/${ENV}.tfvars"
           git commit -m "Deploy: Update ${ENV}.tfvars image_tag to ${IMAGE_TAG}" --allow-empty
-          git push
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Trigger Infra Pipeline
         env:
