@@ -3,6 +3,12 @@ output "alb_dns_name" {
   value       = module.ecs.alb_dns_name
 }
 
+output "db_endpoint" {
+  description = "Endpoint de conexión a RDS PostgreSQL"
+  value       = module.rds.db_endpoint
+  sensitive   = true
+}
+
 output "db_secret_arn" {
   description = "ARN del secreto de RDS"
   value       = module.rds.db_secret_arn

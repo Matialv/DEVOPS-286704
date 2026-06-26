@@ -2,11 +2,9 @@ name: App Pipeline
 
 on:
   push:
-    branches: [main, main-test, main-prod]
+    branches: [main, main-prod, main-test]
     paths:
       - 'src/**'
-      - 'security/**'
-      - 'tests/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [main, main-prod, main-test]
@@ -167,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [sast, sca, detect-environment]
     if: |
-      needs.detect-environment.outputs.environment == 'prod' && 
+      needs.detect-environment.outputs.environment == 'prod' &&
       (github.ref == 'refs/heads/main-prod' || github.event_name == 'workflow_dispatch')
     environment: prod
     steps:
@@ -360,6 +358,7 @@ jobs:
       - name: Trigger Infra Pipeline
         env:
           ENV: ${{ needs.detect-environment.outputs.environment }}
+          BRANCH: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
         run: |
-          gh workflow run infra.yml -f environment="${ENV}"
+          gh workflow run infra.yml -r "$BRANCH" -f environment="${ENV}"

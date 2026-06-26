@@ -3,7 +3,7 @@ data "aws_iam_role" "labrole" {
 }
 
 data "aws_secretsmanager_secret_version" "db_credentials" {
-  secret_id = var.db_secret_arn
+  secret_id = "retailstore/${var.environment}/db-credentials"
 }
 
 locals {

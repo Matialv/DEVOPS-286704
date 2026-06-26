@@ -3,16 +3,14 @@ resource "random_password" "db" {
   special = false
 }
 
-# ─── Secreto en Secrets Manager (nunca en texto plano) ───────────────────────
+# ─── Secreto en Secrets Manager (creado por bootstrap, versionado por Terraform) ─
 
-resource "aws_secretsmanager_secret" "db" {
-  name        = "retailstore/${var.environment}/db-credentials"
-  description = "Credenciales de RDS PostgreSQL para RetailStore ${var.environment}"
-  tags        = merge(var.tags, { Name = "retailstore-${var.environment}-db-secret" })
+data "aws_secretsmanager_secret" "db" {
+  name = "retailstore/${var.environment}/db-credentials"
 }
 
 resource "aws_secretsmanager_secret_version" "db" {
-  secret_id = aws_secretsmanager_secret.db.id
+  secret_id = data.aws_secretsmanager_secret.db.id
   secret_string = jsonencode({
     username = "retailstore"
     password = random_password.db.result
