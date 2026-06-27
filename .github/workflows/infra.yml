@@ -1,7 +1,8 @@
 name: Infra Pipeline
+
 on:
   push:
-    branches: [main]
+    branches: [main, main-prod, main-test]
     paths:
       - 'infrastructure/**'
   #pull_request:
@@ -168,6 +169,7 @@ jobs:
         with:
           name: lambda-package-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/modules/lambda/ecr_scan_notifier.zip
+
   # ─────────────────────────────────────────────
   # 4. APROBACIÓN MANUAL (solo prod)
   # ─────────────────────────────────────────────
