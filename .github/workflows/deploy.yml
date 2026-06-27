@@ -134,7 +134,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Trivy - Scan filesystem (dependencias)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           scan-type: fs
@@ -262,7 +262,7 @@ jobs:
             src/${{ matrix.service }}/
 
       - name: Trivy - Scan image for CRITICAL (bloqueante)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: CRITICAL
@@ -271,7 +271,7 @@ jobs:
           trivyignores: security/.trivyignore
 
       - name: Trivy - Scan image for HIGH (informativo)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
