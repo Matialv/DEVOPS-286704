@@ -10,8 +10,13 @@ RUN apk update && apk upgrade --no-cache
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 
-# CORRECCIÓN YARN v4: Habilitar corepack e instalar dependencias de forma inmutable
-RUN corepack enable && yarn install --immutable
+# SOLUCIÓN CRÍTICA COREPACK + YARN v4: 
+# 1. Actualiza corepack de forma global forzando la sobreescritura del binario viejo
+# 2. Prepara y activa explícitamente la versión declarada en tu package.json
+RUN npm install -g corepack@latest --force && \
+    corepack enable && \
+    corepack prepare yarn@4.11.0 --activate && \
+    yarn install --immutable
 
 # Stage 2: build
 FROM node:${NODE_VERSION} AS builder
@@ -26,8 +31,11 @@ COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 COPY --from=deps /app/node_modules ./node_modules
 
-# CORRECCIÓN YARN v4: Habilitar corepack y ejecutar el build de NestJS
-RUN corepack enable && yarn build
+# Re-activar la versión para la etapa de empaquetado
+RUN npm install -g corepack@latest --force && \
+    corepack enable && \
+    corepack prepare yarn@4.11.0 --activate && \
+    yarn build
 
 # Stage 3: runtime (Producción)
 FROM node:${NODE_VERSION}
