@@ -6,8 +6,8 @@ on:
     paths:
       - 'src/**'
       - '.github/workflows/deploy.yml'
-  #pull_request:
-  #  branches: [main, main-prod, main-test]
+  pull_request:
+    branches: [main, main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
@@ -79,7 +79,7 @@ jobs:
 
       - name: Run Semgrep - Go (catalog, orders)
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
+        continue-on-error: false
         with:
           config: >
             p/golang
@@ -90,7 +90,7 @@ jobs:
 
       - name: Run Semgrep - Python (cart)
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
+        continue-on-error: false
         with:
           config: >
             p/python
@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Semgrep - TypeScript (checkout, ui, admin)
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
+        continue-on-error: false
         with:
           config: >
             p/typescript
@@ -135,13 +135,13 @@ jobs:
 
       - name: Trivy - Scan filesystem (dependencias)
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true
+        continue-on-error: false
         with:
           scan-type: fs
           scan-ref: .
           severity: CRITICAL
           exit-code: "1"
-          ignore-unfixed: true
+          ignore-unfixed: false
           trivyignores: security/.trivyignore
           format: sarif
           output: trivy-fs.sarif
@@ -183,9 +183,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "1.9.0"
+          terraform_version: "1.15.7"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -267,17 +267,17 @@ jobs:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: CRITICAL
           exit-code: "1"
-          ignore-unfixed: true
+          ignore-unfixed: false
           trivyignores: security/.trivyignore
 
       - name: Trivy - Scan image for HIGH (informativo)
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true
+        continue-on-error: false
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: HIGH
           exit-code: "0"
-          ignore-unfixed: true
+          ignore-unfixed: false
           trivyignores: security/.trivyignore
 
       - name: Validate image metadata (USER, SIZE)
@@ -305,7 +305,7 @@ jobs:
       - name: Scan image layers for secrets with Gitleaks
         env:
           IMAGE: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}
-        continue-on-error: true
+        continue-on-error: false
         run: |
           echo "🔍 Escaneando layers de imagen con Gitleaks..."
           docker save "${{ env.IMAGE }}" | docker run --rm -i zricethezav/gitleaks:latest detect \
