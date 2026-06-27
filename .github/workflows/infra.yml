@@ -5,8 +5,8 @@ on:
     branches: [main, main-prod, main-test]
     paths:
       - 'infrastructure/**'
-  pull_request:
-    branches: [main, main-prod, main-test]
+  #pull_request:
+  #  branches: [main, main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
