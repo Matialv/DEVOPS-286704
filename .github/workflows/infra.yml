@@ -19,9 +19,6 @@ on:
           - prod
 
 jobs:
-  # ─────────────────────────────────────────────
-  # 0. DETECTAR ENVIRONMENT POR RAMA
-  # ─────────────────────────────────────────────
   detect-environment:
     name: Detect Environment from Branch
     runs-on: ubuntu-latest
@@ -42,16 +39,16 @@ jobs:
             esac
           fi
           echo "environment=$ENV" >> $GITHUB_OUTPUT
-          echo "Environment: $ENV (Branch: ${{ github.ref_name }})"
-  # ─────────────────────────────────────────────
-  # 1. TERRAFORM INIT
-  # ─────────────────────────────────────────────
-  terraform-init:
-    name: Terraform Init - ${{ needs.detect-environment.outputs.environment }}
+
+  # UNIFICADO: Plan, Validación y Empaquetado en un solo flujo eficiente
+  terraform-plan:
+    name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
     needs: detect-environment
     permissions:
       contents: read
+    outputs:
+      plan_status: ${{ steps.plan.outcome }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,112 +64,49 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        run: terraform init
-
-      - name: Terraform Validate
-        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        run: terraform validate
-
-  # ─────────────────────────────────────────────
-  # 2. BOOTSTRAP SECRETS MANAGER (crear secrets si no existen)
-  # ─────────────────────────────────────────────
-  bootstrap-secrets:
-    name: Bootstrap Secrets Manager
-    runs-on: ubuntu-latest
-    needs: [terraform-init, detect-environment]
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      - name: Create database credentials secret if not exists
-        env:
-          ENV: ${{ needs.detect-environment.outputs.environment }}
-        run: |
-          SECRET_NAME="retailstore/${ENV}/db-credentials"
-
-          # Verificar si el secret existe
-          if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
-            echo "Secret already exists: $SECRET_NAME"
-          else
-            echo "Creating secret: $SECRET_NAME"
-            aws secretsmanager create-secret \
-              --name "$SECRET_NAME" \
-              --description "Database credentials for RetailStore ${ENV}" \
-              --secret-string '{
-                "username": "retailstore",
-                "password": "InitialPassword123!",
-                "host": "alb-placeholder.elb.us-east-1.amazonaws.com",
-                "port": 5432,
-                "dbname": "retailstore_'"${ENV}"'"
-              }' \
-              --region us-east-1
-            echo "Secret created successfully"
-          fi
-
-  # ─────────────────────────────────────────────
-  # 3. TERRAFORM PLAN
-  # ─────────────────────────────────────────────
-  terraform-plan:
-    name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
-    runs-on: ubuntu-latest
-    needs: [terraform-init, bootstrap-secrets, detect-environment]
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: "1.15.7"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        run: terraform init
 
       - name: Package Lambda
         run: |
           cd infrastructure/modules/lambda/src
           zip -j ../ecr_scan_notifier.zip ecr_scan_notifier.py
 
+      - name: Terraform Init & Validate
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
+        run: |
+          terraform init
+          terraform validate
+
+      # Paso preventivo de Secrets Manager movido de forma segura antes del Plan
+      - name: Bootstrap Secrets Manager
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+        run: |
+          SECRET_NAME="retailstore/${ENV}/db-credentials"
+          if ! aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
+            aws secretsmanager create-secret \
+              --name "$SECRET_NAME" \
+              --description "Database credentials for RetailStore ${ENV}" \
+              --secret-string '{"username": "retailstore","password": "InitialPassword123!","host": "://amazonaws.com","port": 5432,"dbname": "retailstore_'"${ENV}"'"}' \
+              --region us-east-1
+          fi
+
       - name: Terraform Plan
+        id: plan
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         env:
           ENV: ${{ needs.detect-environment.outputs.environment }}
         run: |
-          terraform plan \
-            -var-file="${ENV}.tfvars" \
-            -out=tfplan
+          terraform plan -var-file="${ENV}.tfvars" -out=tfplan
 
-      - name: Upload Lambda Package
+      # Persistir el plan y la lambda juntos para el apply
+      - name: Upload Deployment Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lambda-package-${{ needs.detect-environment.outputs.environment }}
-          path: infrastructure/modules/lambda/ecr_scan_notifier.zip
+          name: tf-deployment-${{ needs.detect-environment.outputs.environment }}
+          path: |
+            infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/tfplan
+            infrastructure/modules/lambda/ecr_scan_notifier.zip
 
-  # ─────────────────────────────────────────────
-  # 4. APROBACIÓN MANUAL (solo prod)
-  # ─────────────────────────────────────────────
   approve-prod:
     name: Approve Production Infra
     runs-on: ubuntu-latest
@@ -180,17 +114,14 @@ jobs:
     if: needs.detect-environment.outputs.environment == 'prod'
     environment: prod
     steps:
-      - name: Approval gate (native GitHub environment)
+      - name: Approval gate
         run: echo "Production infra deployment approved"
 
-  # ─────────────────────────────────────────────
-  # 4. TERRAFORM APPLY
-  # ─────────────────────────────────────────────
   terraform-apply:
     name: Terraform Apply - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: [approve-prod, detect-environment]
-    if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') }}
+    needs: [approve-prod, terraform-plan, detect-environment]
+    if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') && needs.terraform-plan.result == 'success' }}
     permissions:
       contents: read
     steps:
@@ -209,24 +140,22 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
+      # Descargar los archivos exactos del paso de Plan
+      - name: Download Deployment Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tf-deployment-${{ needs.detect-environment.outputs.environment }}
+
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: terraform init
 
-      - name: Download Lambda Package
-        uses: actions/download-artifact@v4
-        with:
-          name: lambda-package-${{ needs.detect-environment.outputs.environment }}
-          path: infrastructure/modules/lambda/
-
+      # CORRECCIÓN: Ejecutar el plan guardado de forma exacta y segura
       - name: Terraform Apply
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        env:
-          ENV: ${{ needs.detect-environment.outputs.environment }}
-        run: |
-          terraform apply -auto-approve -var-file="${ENV}.tfvars"
+        run: terraform apply tfplan
 
-      - name: Get Terraform outputs (ALB & RDS endpoint)
+      - name: Get Terraform outputs
         id: tf-output
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: |
@@ -241,35 +170,16 @@ jobs:
           DB_HOST: ${{ steps.tf-output.outputs.db_endpoint }}
         run: |
           SECRET_NAME="retailstore/${ENV}/db-credentials"
-
-          if [ -z "$DB_HOST" ]; then
-            echo "RDS endpoint not available, skipping secret update"
-            exit 0
+          if [ -n "$DB_HOST" ]; then
+            EXISTING_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query 'SecretString' --output text)
+            NEW_SECRET=$(echo "$EXISTING_SECRET" | jq --arg host "$DB_HOST" '.host = $host')
+            aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string "$NEW_SECRET"
           fi
 
-          echo "Updating secret with RDS endpoint: $DB_HOST"
-
-          # Get existing secret value
-          EXISTING_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query 'SecretString' --output text)
-
-          # Update with new RDS host
-          NEW_SECRET=$(echo "$EXISTING_SECRET" | jq --arg host "$DB_HOST" '.host = $host')
-
-          aws secretsmanager update-secret \
-            --secret-id "$SECRET_NAME" \
-            --secret-string "$NEW_SECRET"
-
-          echo "****Secret updated successfully with RDS endpoint****"
-
-  # ─────────────────────────────────────────────
-  # 5. SMOKE TESTS
-  # ─────────────────────────────────────────────
   smoke-tests:
     name: Smoke Tests - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
     needs: [terraform-apply, detect-environment]
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -298,9 +208,7 @@ jobs:
           echo "alb_url=http://$ALB_URL" >> $GITHUB_OUTPUT
 
       - name: Wait for services to be ready
-        run: |
-          bash tests/wait-for-services.sh "${{ steps.tf-output.outputs.alb_url }}" 250
+        run: bash tests/wait-for-services.sh "${{ steps.tf-output.outputs.alb_url }}" 250
 
       - name: Run Smoke Tests
-        run: |
-          bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
+        run: bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
