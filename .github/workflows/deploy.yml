@@ -360,3 +360,11 @@ jobs:
           fi
 
           git push origin HEAD:refs/heads/${TARGET_BRANCH}
+
+      - name: Trigger Infra Pipeline
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+          BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.DEVOPS_DISPATCH_TOKEN }}
+        run: |
+          gh workflow run infra.yml -r "$BRANCH" -f environment="$ENV"
