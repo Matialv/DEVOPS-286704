@@ -2,11 +2,11 @@ name: Infra Pipeline
 
 on:
   push:
-    branches: [main, main-prod, main-test]
+    branches: [main]
     paths:
       - 'infrastructure/**'
   pull_request:
-    branches: [main, main-prod, main-test]
+    branches: [main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
