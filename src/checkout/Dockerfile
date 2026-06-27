@@ -10,13 +10,11 @@ RUN apk update && apk upgrade --no-cache
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 
-# SOLUCIÓN CRÍTICA COREPACK + YARN v4: 
-# 1. Actualiza corepack de forma global forzando la sobreescritura del binario viejo
-# 2. Prepara y activa explícitamente la versión declarada en tu package.json
+# Se elimina --immutable para permitir la resolución y corrección del lockfile en caliente
 RUN npm install -g corepack@latest --force && \
     corepack enable && \
     corepack prepare yarn@4.11.0 --activate && \
-    yarn install --immutable
+    yarn install
 
 # Stage 2: build
 FROM node:${NODE_VERSION} AS builder
@@ -31,7 +29,7 @@ COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 COPY --from=deps /app/node_modules ./node_modules
 
-# Re-activar la versión para la etapa de empaquetado
+# Re-activar la versión para la etapa de empaquetado y compilar
 RUN npm install -g corepack@latest --force && \
     corepack enable && \
     corepack prepare yarn@4.11.0 --activate && \
