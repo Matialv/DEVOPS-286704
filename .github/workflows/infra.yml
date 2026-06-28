@@ -89,6 +89,40 @@ jobs:
               --region us-east-1
           fi
 
+  # ─────────────────────────────────────────────
+  # 3. TERRAFORM PLAN
+  # ─────────────────────────────────────────────
+  terraform-plan:
+    name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [terraform-init, bootstrap-secrets, detect-environment]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.7"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
+        run: terraform init
+
+      - name: Package Lambda
+        run: |
+          cd infrastructure/modules/lambda/src
+          zip -j ../ecr_scan_notifier.zip ecr_scan_notifier.py
+
       - name: Terraform Plan
         id: plan
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
