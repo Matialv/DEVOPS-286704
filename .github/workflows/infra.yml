@@ -40,7 +40,6 @@ jobs:
           fi
           echo "environment=$ENV" >> $GITHUB_OUTPUT
 
-  # UNIFICADO: Plan, Validación y Empaquetado en un solo flujo eficiente
   terraform-plan:
     name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
@@ -98,14 +97,18 @@ jobs:
         run: |
           terraform plan -var-file="${ENV}.tfvars" -out=tfplan
 
-      # Persistir el plan y la lambda juntos para el apply
-      - name: Upload Deployment Artifacts
+      - name: Upload Terraform Plan File
         uses: actions/upload-artifact@v4
         with:
-          name: tf-deployment-${{ needs.detect-environment.outputs.environment }}
-          path: |
-            infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/tfplan
-            infrastructure/modules/lambda/ecr_scan_notifier.zip
+          name: tfplan-${{ needs.detect-environment.outputs.environment }}
+          path: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/tfplan
+
+      - name: Upload Lambda Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-package-${{ needs.detect-environment.outputs.environment }}
+          path: infrastructure/modules/lambda/ecr_scan_notifier.zip
+
 
   approve-prod:
     name: Approve Production Infra
@@ -140,13 +143,20 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      # Descargar los archivos exactos del paso de Plan
-      - name: Download Deployment Artifacts
+      - name: Download Lambda Package
         uses: actions/download-artifact@v4
         with:
-          name: tf-deployment-${{ needs.detect-environment.outputs.environment }}
+          name: lambda-package-${{ needs.detect-environment.outputs.environment }}
+          path: infrastructure/modules/lambda/
+          merge-multiple: true
+
+      - name: Download Terraform Plan File
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/
           merge-multiple: true
+
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: terraform init
