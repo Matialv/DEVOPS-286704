@@ -154,7 +154,7 @@ jobs:
             FINDINGS=$(python3 -c "import json,sys; d=json.load(open('trivy-fs.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
             echo "Vulnerabilidades CRITICAL/HIGH encontradas: **$FINDINGS**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Sin vulnerabilidades CRITICAL/HIGH detectadas " >> $GITHUB_STEP_SUMMARY
+            echo "Sin vulnerabilidades CRITICAL/HIGH detectadas" >> $GITHUB_STEP_SUMMARY
           fi
 
   # ─────────────────────────────────────────────
