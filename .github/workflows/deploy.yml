@@ -79,7 +79,7 @@ jobs:
 
       - name: Run Semgrep - Go (catalog, orders)
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
+        continue-on-error: false
         with:
           config: >
             p/golang
@@ -90,7 +90,7 @@ jobs:
 
       - name: Run Semgrep - Python (cart)
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
+        continue-on-error: false
         with:
           config: >
             p/python
@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Semgrep - TypeScript (checkout, ui, admin)
         uses: returntocorp/semgrep-action@v1
-        continue-on-error: true
+        continue-on-error: false
         with:
           config: >
             p/typescript
@@ -135,7 +135,7 @@ jobs:
 
       - name: Trivy - Scan filesystem (dependencias)
         uses: aquasecurity/trivy-action@v0.36.0
-        continue-on-error: true
+        continue-on-error: false
         with:
           scan-type: fs
           scan-ref: .
@@ -272,7 +272,7 @@ jobs:
 
       - name: Trivy - Scan image for HIGH (informativo)
         uses: aquasecurity/trivy-action@v0.36.0
-        continue-on-error: true
+        continue-on-error: false
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: HIGH
@@ -305,7 +305,7 @@ jobs:
       - name: Scan image layers for secrets with Gitleaks
         env:
           IMAGE: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}
-        continue-on-error: true
+        continue-on-error: false
         run: |
           echo "🔍 Escaneando layers de imagen con Gitleaks..."
           docker save "${{ env.IMAGE }}" | docker run --rm -i zricethezav/gitleaks:latest detect \
