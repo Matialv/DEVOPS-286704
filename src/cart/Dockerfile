@@ -1,24 +1,20 @@
+# Fase 1: Compilación de dependencias
 FROM python:3.13-slim-bookworm AS builder
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir "pip==25.1.1" \
  && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Stage 2: runtime
-FROM python:3.13-slim-bookworm
+# Fase 2: Entorno de ejecución ultra seguro (Distroless)
+FROM gcr.io/distroless/python3-debian12
 WORKDIR /app
 
-# Parcheamos el sistema cumpliendo las reglas DL3008 y DL3015 de Hadolint
-RUN apt-get update && apt-get upgrade -y \
- && apt-get install --no-install-recommends -y perl-base=5.40.1-6 || true \
- && rm -rf /var/lib/apt/lists/*
-
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+# Copiamos las librerías de Python instaladas desde la fase anterior
 COPY --from=builder /install /usr/local
-COPY --chown=appuser:appgroup app/ ./app/
+COPY app/ ./app/
 
-USER appuser
 ENV PORT=8002
 EXPOSE 8002
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
+# Distroless no contiene 'sh' ni 'bash'. Ejecutamos uvicorn directamente por vector de argumentos.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
