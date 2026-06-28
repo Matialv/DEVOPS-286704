@@ -8,6 +8,8 @@ on:
       - main-prod 
     paths:
       - 'infrastructure/**'
+      - 'observability/**'
+      - 'security/**'
   workflow_dispatch:
     inputs:
       environment:
