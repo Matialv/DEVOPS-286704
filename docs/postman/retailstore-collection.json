@@ -1,0 +1,644 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "RetailStore API",
+    "description": "Colección completa de la aplicación RetailStore. Seleccioná el environment (dev / test / prod) para apuntar al ALB correspondiente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "ALB",
+      "value": "http://localhost",
+      "description": "Application Load Balancer URL. Sobreescrita por cada environment."
+    },
+    {
+      "key": "CUSTOMER_ID",
+      "value": "customer-001",
+      "description": "ID de cliente usado en cart y checkout"
+    },
+    {
+      "key": "PRODUCT_ID",
+      "value": "1",
+      "description": "ID de producto de ejemplo"
+    },
+    {
+      "key": "ADMIN_TOKEN",
+      "value": "",
+      "description": "JWT obtenido en POST /auth/login (se setea automáticamente)"
+    }
+  ],
+  "item": [
+    {
+      "name": "Catalog",
+      "description": "Servicio de catálogo de productos",
+      "item": [
+        {
+          "name": "Listar productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/catalog/products?page=1&size=10",
+              "host": ["{{ALB}}"],
+              "path": ["catalog", "products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" },
+                { "key": "tags", "value": "", "disabled": true },
+                { "key": "order", "value": "asc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar productos - filtrar por tag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/catalog/products?tags=featured&page=1&size=10",
+              "host": ["{{ALB}}"],
+              "path": ["catalog", "products"],
+              "query": [
+                { "key": "tags", "value": "featured" },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener producto por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/catalog/products/{{PRODUCT_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["catalog", "products", "{{PRODUCT_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Cantidad de productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/catalog/size",
+              "host": ["{{ALB}}"],
+              "path": ["catalog", "size"],
+              "query": [
+                { "key": "tags", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar tags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/catalog/tags",
+              "host": ["{{ALB}}"],
+              "path": ["catalog", "tags"]
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/health",
+              "host": ["{{ALB}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Topology",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/topology",
+              "host": ["{{ALB}}"],
+              "path": ["topology"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "description": "Servicio de carrito de compras",
+      "item": [
+        {
+          "name": "Obtener carrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Listar items del carrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}/items",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Agregar item al carrito",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{PRODUCT_ID}}\",\n  \"name\": \"Producto de ejemplo\",\n  \"quantity\": 2,\n  \"price\": 29.99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}/items",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Actualizar item del carrito",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{PRODUCT_ID}}\",\n  \"name\": \"Producto de ejemplo\",\n  \"quantity\": 5,\n  \"price\": 29.99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}/items",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Obtener item específico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}/items/{{PRODUCT_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}", "items", "{{PRODUCT_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar item del carrito",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}/items/{{PRODUCT_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}", "items", "{{PRODUCT_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Mergear carrito de sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}/merge?sessionId=session-abc123",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}", "merge"],
+              "query": [
+                { "key": "sessionId", "value": "session-abc123" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vaciar carrito",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/carts/{{CUSTOMER_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["carts", "{{CUSTOMER_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/health",
+              "host": ["{{ALB}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Checkout",
+      "description": "Servicio de checkout — convierte el carrito en una orden",
+      "item": [
+        {
+          "name": "Obtener checkout del cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/checkout/{{CUSTOMER_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["checkout", "{{CUSTOMER_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Actualizar checkout (items + dirección)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{PRODUCT_ID}}\",\n      \"name\": \"Producto de ejemplo\",\n      \"quantity\": 2,\n      \"price\": 29.99\n    }\n  ],\n  \"shippingAddress\": {\n    \"firstName\": \"Juan\",\n    \"lastName\": \"Pérez\",\n    \"email\": \"juan.perez@example.com\",\n    \"address1\": \"Av. Principal 123\",\n    \"address2\": \"Piso 4\",\n    \"city\": \"Montevideo\",\n    \"state\": \"Montevideo\",\n    \"zipCode\": \"11300\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ALB}}/checkout/{{CUSTOMER_ID}}/update",
+              "host": ["{{ALB}}"],
+              "path": ["checkout", "{{CUSTOMER_ID}}", "update"]
+            }
+          }
+        },
+        {
+          "name": "Confirmar y enviar orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ALB}}/checkout/{{CUSTOMER_ID}}/submit",
+              "host": ["{{ALB}}"],
+              "path": ["checkout", "{{CUSTOMER_ID}}", "submit"]
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/health",
+              "host": ["{{ALB}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Topology",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/topology",
+              "host": ["{{ALB}}"],
+              "path": ["topology"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "description": "Servicio de órdenes",
+      "item": [
+        {
+          "name": "Listar órdenes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/orders",
+              "host": ["{{ALB}}"],
+              "path": ["orders"]
+            }
+          }
+        },
+        {
+          "name": "Crear orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingAddress\": {\n    \"firstName\": \"Juan\",\n    \"lastName\": \"Pérez\",\n    \"email\": \"juan.perez@example.com\",\n    \"address1\": \"Av. Principal 123\",\n    \"address2\": \"Piso 4\",\n    \"city\": \"Montevideo\",\n    \"state\": \"Montevideo\",\n    \"zipCode\": \"11300\"\n  },\n  \"items\": [\n    {\n      \"productId\": \"{{PRODUCT_ID}}\",\n      \"name\": \"Producto de ejemplo\",\n      \"quantity\": 2,\n      \"price\": 29.99\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ALB}}/orders",
+              "host": ["{{ALB}}"],
+              "path": ["orders"]
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/health",
+              "host": ["{{ALB}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Panel de administración — requiere autenticación JWT",
+      "item": [
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Login",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const cookie = pm.response.headers.get('Set-Cookie');",
+                      "if (cookie) {",
+                      "  const token = cookie.split(';')[0].split('=')[1];",
+                      "  pm.collectionVariables.set('ADMIN_TOKEN', token);",
+                      "  pm.environment.set('ADMIN_TOKEN', token);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{ALB}}/auth/login",
+                  "host": ["{{ALB}}"],
+                  "path": ["auth", "login"]
+                }
+              }
+            },
+            {
+              "name": "Verificar sesión",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "url": {
+                  "raw": "{{ALB}}/auth/me",
+                  "host": ["{{ALB}}"],
+                  "path": ["auth", "me"]
+                }
+              }
+            },
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "url": {
+                  "raw": "{{ALB}}/auth/logout",
+                  "host": ["{{ALB}}"],
+                  "path": ["auth", "logout"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Productos",
+          "item": [
+            {
+              "name": "Listar productos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "url": {
+                  "raw": "{{ALB}}/admin/api/products",
+                  "host": ["{{ALB}}"],
+                  "path": ["admin", "api", "products"]
+                }
+              }
+            },
+            {
+              "name": "Crear producto",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Nuevo producto\",\n  \"description\": \"Descripción del producto\",\n  \"price\": 49.99\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{ALB}}/admin/api/products",
+                  "host": ["{{ALB}}"],
+                  "path": ["admin", "api", "products"]
+                }
+              }
+            },
+            {
+              "name": "Actualizar producto",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Producto actualizado\",\n  \"description\": \"Nueva descripción\",\n  \"price\": 59.99\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{ALB}}/admin/api/products/{{PRODUCT_ID}}",
+                  "host": ["{{ALB}}"],
+                  "path": ["admin", "api", "products", "{{PRODUCT_ID}}"]
+                }
+              }
+            },
+            {
+              "name": "Eliminar producto",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "url": {
+                  "raw": "{{ALB}}/admin/api/products/{{PRODUCT_ID}}",
+                  "host": ["{{ALB}}"],
+                  "path": ["admin", "api", "products", "{{PRODUCT_ID}}"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Órdenes",
+          "item": [
+            {
+              "name": "Listar órdenes",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Cookie", "value": "token={{ADMIN_TOKEN}}" }
+                ],
+                "url": {
+                  "raw": "{{ALB}}/admin/api/orders",
+                  "host": ["{{ALB}}"],
+                  "path": ["admin", "api", "orders"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/health",
+              "host": ["{{ALB}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "UI (API Gateway)",
+      "description": "Proxy hacia los microservicios — mismo ALB, paths /api/*",
+      "item": [
+        {
+          "name": "Productos vía UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/api/catalog/products?page=1&size=10",
+              "host": ["{{ALB}}"],
+              "path": ["api", "catalog", "products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Carrito vía UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/api/carts/{{CUSTOMER_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["api", "carts", "{{CUSTOMER_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Checkout vía UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/api/checkout/{{CUSTOMER_ID}}",
+              "host": ["{{ALB}}"],
+              "path": ["api", "checkout", "{{CUSTOMER_ID}}"]
+            }
+          }
+        },
+        {
+          "name": "Órdenes vía UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/api/orders",
+              "host": ["{{ALB}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ALB}}/health",
+              "host": ["{{ALB}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

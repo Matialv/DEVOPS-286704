@@ -43,7 +43,7 @@ jobs:
             esac
           fi
           echo "environment=$ENV" >> $GITHUB_OUTPUT
-          echo "🎯 Environment: $ENV (Branch: ${{ github.ref_name }})"
+          echo "Environment: $ENV (Branch: ${{ github.ref_name }})"
   # ─────────────────────────────────────────────
   # 1. DETECCIÓN DE SECRETOS
   
@@ -149,13 +149,53 @@ jobs:
       - name: Mostrar resumen Trivy
         if: always()
         run: |
-          echo "## Resultados SCA (Trivy)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛡️ Resultados del Análisis de Dependencias (Trivy SCA)" >> $GITHUB_STEP_SUMMARY
+          
           if [ -f trivy-fs.sarif ]; then
-            FINDINGS=$(python3 -c "import json,sys; d=json.load(open('trivy-fs.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
-            echo "Vulnerabilidades CRITICAL/HIGH encontradas: **$FINDINGS**" >> $GITHUB_STEP_SUMMARY
+            # Script de Python corregido para mapear la estructura SARIF exacta de Trivy
+            python3 -c "
+          import json, sys
+          try:
+              with open('trivy-fs.sarif') as f:
+                  data = json.load(f)
+              
+              total_findings = 0
+              table_lines = []
+              
+              for run in data.get('runs', []):
+                  results = run.get('results', [])
+                  total_findings += len(results)
+                  
+                  for res in results:
+                      cve_id = res.get('ruleId', 'N/A')
+                      msg = res.get('message', {}).get('text', 'No description').split('\n')[0]
+                      # Extraer locaciones si existen
+                      locations = res.get('locations', [])
+                      file_path = locations[0].get('physicalLocation', {}).get('artifactLocation', {}).get('uri', 'Desconocido') if locations else 'Desconocido'
+                      table_lines.append(f'| {cve_id} | {file_path} | {msg[:80]}... |')
+              
+              print(f'Vulnerabilidades encontradas: **{total_findings}**\n')
+              with open('summary.tmp', 'w') as out:
+                  out.write(f'❌ Se detectaron **{total_findings}** vulnerabilidades críticas en dependencias.\n\n')
+                  if total_findings > 0:
+                      out.write('| ID Vulnerabilidad | Archivo Afectado | Descripción |\n')
+                      out.write('| --- | --- | --- |\n')
+                      for line in table_lines:
+                          out.write(line + '\n')
+          except Exception as e:
+              with open('summary.tmp', 'w') as out:
+                  out.write('⚠️ Error al parsear el reporte SARIF.\n')
+          "
+            
+            # Volcar los datos procesados al step summary nativo de GitHub
+            if [ -f summary.tmp ]; then
+              cat summary.tmp >> $GITHUB_STEP_SUMMARY
+              rm summary.tmp
+            fi
           else
-            echo "Sin vulnerabilidades CRITICAL/HIGH detectadas ✅" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No se localizó el archivo de reporte SARIF. Sin vulnerabilidades detectadas." >> $GITHUB_STEP_SUMMARY
           fi
+
 
   # ─────────────────────────────────────────────
   # 4. APROBACIÓN MANUAL (solo prod)
@@ -188,7 +228,7 @@ jobs:
           terraform_version: "1.15.7"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -235,7 +275,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -262,7 +302,7 @@ jobs:
             src/${{ matrix.service }}/
 
       - name: Trivy - Scan image for CRITICAL (bloqueante)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: CRITICAL

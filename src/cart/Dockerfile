@@ -1,4 +1,3 @@
-# Stage 1: deps
 FROM python:3.13-slim AS builder
 WORKDIR /app
 COPY requirements.txt .
