@@ -1,11 +1,11 @@
-FROM python:3.13-slim AS builder
+FROM python:3.13-slim-bookworm AS builder
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir "pip==25.1.1" \
  && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: runtime
-FROM python:3.13-slim
+FROM python:3.13-slim-bookworm
 WORKDIR /app
 
 # Parcheamos el sistema cumpliendo las reglas DL3008 y DL3015 de Hadolint
