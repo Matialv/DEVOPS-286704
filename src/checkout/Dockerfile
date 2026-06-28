@@ -4,13 +4,22 @@ ARG NODE_VERSION=22.14.0-alpine
 FROM node:${NODE_VERSION} AS deps
 WORKDIR /app
 
-# Parche de seguridad para el SO base Alpine
-RUN apk update && apk upgrade --no-cache
+RUN apk update && apk upgrade --no-cache && apk add --no-cache jq
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 
-# Se elimina --immutable para permitir la resolución y corrección del lockfile en caliente
+RUN jq '.resolutions = { \
+    "@grpc/grpc-js": "^1.12.0", \
+    "protobufjs": "^7.4.0", \
+    "undici": "^6.21.1", \
+    "lodash": "^4.17.21", \
+    "js-yaml": "^4.1.0", \
+    "minimatch": "^9.0.5", \
+    "qs": "^6.13.1", \
+    "systeminformation": "^5.23.5" \
+  }' package.json > package.json.tmp && mv package.json.tmp package.json
+
 RUN npm install -g corepack@latest --force && \
     corepack enable && \
     corepack prepare yarn@4.11.0 --activate && \
@@ -20,8 +29,7 @@ RUN npm install -g corepack@latest --force && \
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 
-# Parche de seguridad para el SO base Alpine
-RUN apk update && apk upgrade --no-cache
+RUN apk update && apk upgrade --no-cache && apk add --no-cache jq
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
@@ -29,27 +37,36 @@ COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 COPY --from=deps /app/node_modules ./node_modules
 
-# Re-activar la versión para la etapa de empaquetado y compilar
+RUN jq '.resolutions = { \
+    "@grpc/grpc-js": "^1.12.0", \
+    "protobufjs": "^7.4.0", \
+    "undici": "^6.21.1", \
+    "lodash": "^4.17.21", \
+    "js-yaml": "^4.1.0", \
+    "minimatch": "^9.0.5", \
+    "qs": "^6.13.1", \
+    "systeminformation": "^5.23.5" \
+  }' package.json > package.json.tmp && mv package.json.tmp package.json
+
 RUN npm install -g corepack@latest --force && \
     corepack enable && \
     corepack prepare yarn@4.11.0 --activate && \
     yarn build
 
-# Stage 3: runtime (Producción)
+# Stage 3: runtime
 FROM node:${NODE_VERSION}
 WORKDIR /app
 
-# Parche de seguridad crítico para pasar Trivy sin vulnerabilidades OS
 RUN apk update && apk upgrade --no-cache
 
-# Configuración segura de usuario no-root
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# 🔥 CUMPLIMIENTO DE SEGURIDAD: Usuario y grupo de sistema personalizados (No root, no appuser)
+RUN addgroup -S checkoutgroup && adduser -S checkoutuser -G checkoutgroup
 
-# Copiar artefactos finales con permisos limpios
-COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
-COPY --from=deps --chown=appuser:appgroup /app/node_modules ./node_modules
+# Copiar artefactos asignando la propiedad al usuario personalizado
+COPY --from=builder --chown=checkoutuser:checkoutgroup /app/dist ./dist
+COPY --from=deps --chown=checkoutuser:checkoutgroup /app/node_modules ./node_modules
 
-USER appuser
+USER checkoutuser
 ENV PORT=8003
 EXPOSE 8003
 

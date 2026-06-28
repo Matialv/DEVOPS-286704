@@ -1,4 +1,3 @@
-# CORRECCIÓN CRÍTICA: Se eleva a Go 1.25.7 para parchar el CVE-2025-68121 en la stdlib
 ARG GOLANG_VERSION=1.25.7-alpine
 ARG DISTROLESS_VERSION=nonroot
 
@@ -6,11 +5,19 @@ ARG DISTROLESS_VERSION=nonroot
 FROM golang:${GOLANG_VERSION} AS builder
 WORKDIR /app
 
-# Parche de seguridad preventivo para las herramientas del entorno de compilación
 RUN apk update && apk upgrade --no-cache
 
 COPY go.mod go.sum ./
-RUN go mod download
+
+# Corregir dependencias vulnerables en caliente antes de compilar
+RUN go mod download && \
+    go get -u ://github.com \
+          go.opentelemetry.io/otel \
+          go.opentelemetry.io/otel/sdk \
+          golang.org/x/crypto \
+          golang.org/x/net \
+          golang.org/x/sys && \
+    go mod tidy
 
 COPY main.go ./
 COPY api ./api
@@ -21,17 +28,15 @@ COPY middleware ./middleware
 COPY model ./model
 COPY repository ./repository
 
-# Compilación estática segura
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o catalog .
 
-# Stage 2: runtime (Imagen Distroless ultra segura)
+# Stage 2: runtime
 FROM gcr.io/distroless/static:${DISTROLESS_VERSION}
 WORKDIR /app
-
-# Copiar el binario estático ya parchado y libre de vulnerabilidades
 COPY --from=builder /app/catalog .
-
 EXPOSE 8001
-USER nonroot:nonroot
+
+# 🔥 CUMPLIMIENTO DE SEGURIDAD: Usuario numérico personalizado (No root, no appuser)
+USER 10001:10001
 
 CMD ["/app/catalog"]
