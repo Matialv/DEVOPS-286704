@@ -25,36 +25,6 @@
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "ALB Request Count + 5xx Errors",
-        "view": "timeSeries",
-        "period": 60,
-        "stat": "Sum",
-        "metrics": [
-          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "<alb-arn-suffix>"],
-          ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "<alb-arn-suffix>"],
-          ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", "<alb-arn-suffix>"]
-        ]
-      }
-    },
-    {
-      "type": "metric",
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "title": "ALB Latencia p99 (segundos)",
-        "view": "timeSeries",
-        "period": 60,
-        "stat": "p99",
-        "metrics": [
-          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "<alb-arn-suffix>"]
-        ]
-      }
-    },
-    {
-      "type": "metric",
-      "width": 12,
-      "height": 6,
-      "properties": {
         "title": "ECS Memory Utilization por servicio",
         "view": "timeSeries",
         "period": 300,
@@ -66,6 +36,71 @@
           ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-orders"],
           ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-ui"],
           ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-admin"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ECS Tareas Activas (Running Tasks)",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "<cluster>", "ServiceName", "<cluster>-catalog"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "<cluster>", "ServiceName", "<cluster>-cart"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "<cluster>", "ServiceName", "<cluster>-checkout"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "<cluster>", "ServiceName", "<cluster>-orders"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "<cluster>", "ServiceName", "<cluster>-ui"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "<cluster>", "ServiceName", "<cluster>-admin"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Fargate Almacenamiento Efímero (%)",
+        "view": "timeSeries",
+        "period": 300,
+        "stat": "Maximum",
+        "metrics": [
+          ["AWS/ECS", "EphemeralStorageUtilized", "ClusterName", "<cluster>", "ServiceName", "<cluster>-catalog"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB Errores de Conexión e Infraestructura",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", "<alb-arn-suffix>"],
+          ["AWS/ApplicationELB", "TargetConnectionErrorCount", "LoadBalancer", "<alb-arn-suffix>"],
+          ["AWS/ApplicationELB", "RejectedConnectionCount", "LoadBalancer", "<alb-arn-suffix>"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB Latencia p95 por Target Group (Microservicios)",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "p95",
+        "metrics": [
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "<alb-arn-suffix>", "TargetGroup", "<tg-catalog-arn-suffix>"],
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "<alb-arn-suffix>", "TargetGroup", "<tg-cart-arn-suffix>"],
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "<alb-arn-suffix>", "TargetGroup", "<tg-checkout-arn-suffix>"]
         ]
       }
     }
