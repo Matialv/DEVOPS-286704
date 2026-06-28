@@ -13,3 +13,8 @@ output "db_secret_name" {
   description = "Nombre del secreto en Secrets Manager"
   value       = data.aws_secretsmanager_secret.db.name
 }
+
+output "db_instance_id" {
+  description = "Identificador de la instancia RDS para métricas CloudWatch"
+  value       = aws_db_instance.main.identifier
+}
