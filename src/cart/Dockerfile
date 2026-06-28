@@ -8,7 +8,10 @@ RUN pip install --no-cache-dir "pip==25.1.1" \
 FROM python:3.13-slim
 WORKDIR /app
 # Patch OS packages to eliminate known CVEs in base image layers
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get upgrade -y \
+ && apt-get install --only-upgrade -y perl-base || true \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 COPY --from=builder /install /usr/local
 COPY --chown=appuser:appgroup app/ ./app/
