@@ -146,6 +146,7 @@ jobs:
         with:
           name: tf-deployment-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/
+          merge-multiple: true
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: terraform init
