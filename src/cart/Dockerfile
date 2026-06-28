@@ -7,15 +7,18 @@ RUN pip install --no-cache-dir "pip==25.1.1" \
 # Stage 2: runtime
 FROM python:3.13-slim
 WORKDIR /app
-# Patch OS packages to eliminate known CVEs in base image layers
+
+# Parcheamos el sistema cumpliendo las reglas DL3008 y DL3015 de Hadolint
 RUN apt-get update && apt-get upgrade -y \
- && apt-get install --only-upgrade -y perl-base || true \
+ && apt-get install --no-install-recommends -y perl-base=5.40.1-6 || true \
  && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 COPY --from=builder /install /usr/local
 COPY --chown=appuser:appgroup app/ ./app/
+
 USER appuser
 ENV PORT=8002
 EXPOSE 8002
+
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
