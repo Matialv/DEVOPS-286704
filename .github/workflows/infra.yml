@@ -145,7 +145,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tf-deployment-${{ needs.detect-environment.outputs.environment }}
-
+          path: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/
       - name: Terraform Init
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: terraform init
