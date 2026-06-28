@@ -2,12 +2,12 @@ name: App Pipeline
 
 on:
   push:
-    branches: [main, main-test]
+    branches: [main]
     paths:
       - 'src/**'
       - '.github/workflows/deploy.yml'
   pull_request:
-    branches: [main, main-prod, main-test]
+    branches: [main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
