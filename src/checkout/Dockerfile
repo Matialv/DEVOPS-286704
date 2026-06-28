@@ -1,80 +1,26 @@
-ARG NODE_VERSION=24-alpine
-
-# Stage 1: deps
-FROM node:${NODE_VERSION} AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
-
-# CORRECCIÓN HADOLINT: Se fija la versión compatible de jq para Alpine de Node 22
-RUN apk update && apk upgrade --no-cache && apk add --no-cache "jq~=1.7"
-
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
-
-# 🔥 CORRECCIÓN EN CALIENTE: Inyectar resoluciones y ELIMINAR el lockfile viejo para forzar el bypass de las 140 fallas
-RUN jq '.resolutions = { \
-    "@grpc/grpc-js": "^1.12.0", \
-    "protobufjs": "^7.4.0", \
-    "undici": "^6.21.1", \
-    "lodash": "^4.17.21", \
-    "js-yaml": "^4.1.0", \
-    "minimatch": "^9.0.5", \
-    "qs": "^6.13.1", \
-    "systeminformation": "^5.23.5" \
-  }' package.json > package.json.tmp && \
-  mv package.json.tmp package.json && \
-  rm -f yarn.lock
-
-RUN npm install -g corepack@latest --force && \
-    corepack enable && \
-    corepack prepare yarn@4.11.0 --activate && \
-    yarn install
+RUN corepack enable && corepack install && yarn install
 
 # Stage 2: build
-FROM node:${NODE_VERSION} AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
-
-# CORRECCIÓN HADOLINT: Se fija la versión compatible de jq aquí también
-RUN apk update && apk upgrade --no-cache && apk add --no-cache "jq~=1.7"
-
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 COPY --from=deps /app/node_modules ./node_modules
-
-# Repetimos el borrado del lockfile para garantizar consistencia en la compilación
-RUN jq '.resolutions = { \
-    "@grpc/grpc-js": "^1.12.0", \
-    "protobufjs": "^7.4.0", \
-    "undici": "^6.21.1", \
-    "lodash": "^4.17.21", \
-    "js-yaml": "^4.1.0", \
-    "minimatch": "^9.0.5", \
-    "qs": "^6.13.1", \
-    "systeminformation": "^5.23.5" \
-  }' package.json > package.json.tmp && \
-  mv package.json.tmp package.json && \
-  rm -f yarn.lock
-
-RUN npm install -g corepack@latest --force && \
-    corepack enable && \
-    corepack prepare yarn@4.11.0 --activate && \
-    yarn build
+RUN corepack enable && yarn build
 
 # Stage 3: runtime
-FROM node:${NODE_VERSION}
+FROM node:22-alpine
 WORKDIR /app
-
-RUN apk update && apk upgrade --no-cache
-
-# CUMPLIMIENTO: Usuario y grupo de sistema personalizados (No root, no appuser)
-RUN addgroup -S checkoutgroup && adduser -S checkoutuser -G checkoutgroup
-
-COPY --from=builder --chown=checkoutuser:checkoutgroup /app/dist ./dist
-COPY --from=deps --chown=checkoutuser:checkoutgroup /app/node_modules ./node_modules
-
-USER checkoutuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=deps --chown=appuser:appgroup /app/node_modules ./node_modules
+USER appuser
 ENV PORT=8003
 EXPOSE 8003
-
 CMD ["node", "dist/main.js"]
