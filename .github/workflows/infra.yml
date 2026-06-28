@@ -2,11 +2,13 @@ name: Infra Pipeline
 
 on:
   push:
-    branches: [main, main-prod, main-test]
+    branches: [main, main-test]
     paths:
       - 'infrastructure/**'
   pull_request:
     branches: [main, main-prod, main-test]
+    paths:
+      - 'infrastructure/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -20,18 +22,25 @@ on:
 
 jobs:
   detect-environment:
-    name: Detect Environment from Branch
+    name: Detect Environment
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
     steps:
-      - name: Set environment based on branch
+      - name: Set environment based on branch or input
         id: set-env
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             ENV="${{ github.event.inputs.environment }}"
           else
-            case "${{ github.ref_name }}" in
+            # Determinar la rama objetivo (target) según el evento
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              BRANCH="${{ github.event.pull_request.base.ref }}"
+            else
+              BRANCH="${{ github.ref_name }}"
+            fi
+
+            case "$BRANCH" in
               main-prod) ENV="prod" ;;
               main-test) ENV="test" ;;
               main) ENV="dev" ;;
@@ -44,58 +53,6 @@ jobs:
     name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
     needs: detect-environment
-    permissions:
-      contents: read
-    outputs:
-      plan_status: ${{ steps.plan.outcome }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: "1.15.7"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      - name: Package Lambda
-        run: |
-          cd infrastructure/modules/lambda/src
-          zip -j ../ecr_scan_notifier.zip ecr_scan_notifier.py
-
-      - name: Terraform Init & Validate
-        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        run: |
-          terraform init
-          terraform validate
-
-      # Paso preventivo de Secrets Manager movido de forma segura antes del Plan
-      - name: Bootstrap Secrets Manager
-        env:
-          ENV: ${{ needs.detect-environment.outputs.environment }}
-        run: |
-          SECRET_NAME="retailstore/${ENV}/db-credentials"
-          if ! aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
-            aws secretsmanager create-secret \
-              --name "$SECRET_NAME" \
-              --description "Database credentials for RetailStore ${ENV}" \
-              --secret-string '{"username": "retailstore","password": "InitialPassword123!","host": "://amazonaws.com","port": 5432,"dbname": "retailstore_'"${ENV}"'"}' \
-              --region us-east-1
-          fi
-
-  # ─────────────────────────────────────────────
-  # 3. TERRAFORM PLAN
-  # ─────────────────────────────────────────────
-  terraform-plan:
-    name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
-    runs-on: ubuntu-latest
-    needs: [terraform-init, bootstrap-secrets, detect-environment]
     permissions:
       contents: read
     steps:
@@ -114,14 +71,29 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        run: terraform init
-
       - name: Package Lambda
         run: |
           cd infrastructure/modules/lambda/src
           zip -j ../ecr_scan_notifier.zip ecr_scan_notifier.py
+
+      - name: Bootstrap Secrets Manager
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+        run: |
+          SECRET_NAME="retailstore/${ENV}/db-credentials"
+          if ! aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
+            aws secretsmanager create-secret \
+              --name "$SECRET_NAME" \
+              --description "Database credentials for RetailStore ${ENV}" \
+              --secret-string '{"username": "retailstore","password": "InitialPassword123!","host": "://amazonaws.com","port": 5432,"dbname": "retailstore_'"${ENV}"'"}' \
+              --region us-east-1
+          fi
+
+      - name: Terraform Init & Validate
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
+        run: |
+          terraform init
+          terraform validate
 
       - name: Terraform Plan
         id: plan
@@ -143,7 +115,6 @@ jobs:
           name: lambda-package-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/modules/lambda/ecr_scan_notifier.zip
 
-
   approve-prod:
     name: Approve Production Infra
     runs-on: ubuntu-latest
@@ -158,7 +129,11 @@ jobs:
     name: Terraform Apply - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
     needs: [approve-prod, terraform-plan, detect-environment]
-    if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') && needs.terraform-plan.result == 'success' }}
+    if: |
+      always() && 
+      (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') && 
+      needs.terraform-plan.result == 'success' &&
+      github.event_name != 'pull_request'
     permissions:
       contents: read
     steps:
@@ -170,7 +145,7 @@ jobs:
           terraform_version: "1.15.7"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -195,10 +170,9 @@ jobs:
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: terraform init
 
-      # CORRECCIÓN: Ejecutar el plan guardado de forma exacta y segura
       - name: Terraform Apply
         working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
-        run: terraform apply tfplan
+        run: terraform apply -input=false tfplan
 
       - name: Get Terraform outputs
         id: tf-output
@@ -218,7 +192,7 @@ jobs:
           if [ -n "$DB_HOST" ]; then
             EXISTING_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query 'SecretString' --output text)
             NEW_SECRET=$(echo "$EXISTING_SECRET" | jq --arg host "$DB_HOST" '.host = $host')
-            aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string "$NEW_SECRET"
+            aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string "$NEW_SECRET" --region us-east-1
           fi
 
   smoke-tests:
