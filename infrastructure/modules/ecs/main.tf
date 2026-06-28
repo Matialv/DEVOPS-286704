@@ -3,7 +3,7 @@ data "aws_iam_role" "labrole" {
 }
 
 data "aws_secretsmanager_secret_version" "db_credentials" {
-  secret_id = var.db_secret_arn
+  secret_id = "retailstore/${var.environment}/db-credentials"
 }
 
 locals {
@@ -199,6 +199,24 @@ resource "aws_ecs_task_definition" "services" {
           name  = "RETAIL_UI_ENDPOINTS_ORDERS"
           value = "http://${aws_lb.main.dns_name}:8004"
         }
+      ] : [],
+      each.key == "admin" ? [
+        {
+          name  = "DB_HOST"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host
+        },
+        {
+          name  = "DB_PORT"
+          value = "5432"
+        },
+        {
+          name  = "DB_USER"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
+        },
+        {
+          name  = "DB_NAME"
+          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
+        }
       ] : []
     )
 
@@ -224,6 +242,12 @@ resource "aws_ecs_task_definition" "services" {
       each.key == "cart" ? [
         {
           name      = "CART_POSTGRES_PASSWORD"
+          valueFrom = "${var.db_secret_arn}:password::"
+        }
+      ] : [],
+      each.key == "admin" ? [
+        {
+          name      = "DB_PASSWORD"
           valueFrom = "${var.db_secret_arn}:password::"
         }
       ] : []

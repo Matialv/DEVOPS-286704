@@ -2,10 +2,11 @@ name: Infra Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, main-prod, main-test]
     paths:
       - 'infrastructure/**'
-      - '.github/workflows/infra.yml'
+  pull_request:
+    branches: [main, main-prod, main-test]
   workflow_dispatch:
     inputs:
       environment:
@@ -18,171 +19,188 @@ on:
           - prod
 
 jobs:
-  # ─────────────────────────────────────────────
-  # 1. TERRAFORM INIT
-  # ─────────────────────────────────────────────
-  terraform-init:
-    name: Terraform Init - ${{ github.event.inputs.environment || 'dev' }}
+  detect-environment:
+    name: Detect Environment from Branch
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Set environment based on branch
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+          else
+            case "${{ github.ref_name }}" in
+              main-prod) ENV="prod" ;;
+              main-test) ENV="test" ;;
+              main) ENV="dev" ;;
+              *) ENV="dev" ;;
+            esac
+          fi
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.9.0"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
-
-      - name: Terraform Validate
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform validate
-
-  # ─────────────────────────────────────────────
-  # 2. TERRAFORM PLAN
-  # ─────────────────────────────────────────────
   terraform-plan:
-    name: Terraform Plan - ${{ github.event.inputs.environment || 'dev' }}
+    name: Terraform Plan - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: terraform-init
+    needs: detect-environment
     permissions:
       contents: read
+    outputs:
+      plan_status: ${{ steps.plan.outcome }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "1.9.0"
+          terraform_version: "1.15.7"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
 
       - name: Package Lambda
         run: |
           cd infrastructure/modules/lambda/src
           zip -j ../ecr_scan_notifier.zip ecr_scan_notifier.py
 
-      - name: Terraform Plan
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
+      - name: Terraform Init & Validate
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: |
-          terraform plan \
-            -var-file="${ENV}.tfvars" \
-            -out=tfplan
+          terraform init
+          terraform validate
+
+      # Paso preventivo de Secrets Manager movido de forma segura antes del Plan
+      - name: Bootstrap Secrets Manager
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+        run: |
+          SECRET_NAME="retailstore/${ENV}/db-credentials"
+          if ! aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
+            aws secretsmanager create-secret \
+              --name "$SECRET_NAME" \
+              --description "Database credentials for RetailStore ${ENV}" \
+              --secret-string '{"username": "retailstore","password": "InitialPassword123!","host": "://amazonaws.com","port": 5432,"dbname": "retailstore_'"${ENV}"'"}' \
+              --region us-east-1
+          fi
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+        run: |
+          terraform plan -var-file="${ENV}.tfvars" -out=tfplan
+
+      - name: Upload Terraform Plan File
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ needs.detect-environment.outputs.environment }}
+          path: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/tfplan
 
       - name: Upload Lambda Package
         uses: actions/upload-artifact@v4
         with:
-          name: lambda-package-${{ github.event.inputs.environment || 'dev' }}
+          name: lambda-package-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/modules/lambda/ecr_scan_notifier.zip
 
-  # ─────────────────────────────────────────────
-  # 3. APROBACIÓN MANUAL (solo prod)
-  # ─────────────────────────────────────────────
+
   approve-prod:
     name: Approve Production Infra
     runs-on: ubuntu-latest
-    needs: terraform-plan
-    if: github.event.inputs.environment == 'prod'
+    needs: [terraform-plan, detect-environment]
+    if: needs.detect-environment.outputs.environment == 'prod'
     environment: prod
     steps:
-      - name: Approval gate (native GitHub environment)
+      - name: Approval gate
         run: echo "Production infra deployment approved"
 
-  # ─────────────────────────────────────────────
-  # 4. TERRAFORM APPLY
-  # ─────────────────────────────────────────────
   terraform-apply:
-    name: Terraform Apply - ${{ github.event.inputs.environment || 'dev' }}
+    name: Terraform Apply - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: approve-prod
-    if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') }}
-    environment: "${{ github.event.inputs.environment || 'dev' }}"
+    needs: [approve-prod, terraform-plan, detect-environment]
+    if: ${{ always() && (needs.approve-prod.result == 'success' || needs.approve-prod.result == 'skipped') && needs.terraform-plan.result == 'success' }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "1.9.0"
+          terraform_version: "1.15.7"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
-      - name: Terraform Init
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        run: terraform init
 
       - name: Download Lambda Package
         uses: actions/download-artifact@v4
         with:
-          name: lambda-package-${{ github.event.inputs.environment || 'dev' }}
+          name: lambda-package-${{ needs.detect-environment.outputs.environment }}
           path: infrastructure/modules/lambda/
+          merge-multiple: true
 
+      - name: Download Terraform Plan File
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ needs.detect-environment.outputs.environment }}
+          path: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}/
+          merge-multiple: true
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
+        run: terraform init
+
+      # CORRECCIÓN: Ejecutar el plan guardado de forma exacta y segura
       - name: Terraform Apply
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
-        env:
-          ENV: ${{ github.event.inputs.environment || 'dev' }}
-        run: |
-          terraform apply -auto-approve \
-            -var-file="${ENV}.tfvars"
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
+        run: terraform apply tfplan
 
-      - name: Get ALB URL from Terraform output
+      - name: Get Terraform outputs
         id: tf-output
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: |
           ALB_URL=$(terraform output -raw alb_dns_name 2>/dev/null || echo "")
+          DB_ENDPOINT=$(terraform output -raw db_endpoint 2>/dev/null || echo "")
           echo "alb_url=http://$ALB_URL" >> $GITHUB_OUTPUT
+          echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
 
-  # ─────────────────────────────────────────────
-  # 5. SMOKE TESTS
-  # ─────────────────────────────────────────────
+      - name: Update Secrets Manager with RDS endpoint
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+          DB_HOST: ${{ steps.tf-output.outputs.db_endpoint }}
+        run: |
+          SECRET_NAME="retailstore/${ENV}/db-credentials"
+          if [ -n "$DB_HOST" ]; then
+            EXISTING_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query 'SecretString' --output text)
+            NEW_SECRET=$(echo "$EXISTING_SECRET" | jq --arg host "$DB_HOST" '.host = $host')
+            aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string "$NEW_SECRET"
+          fi
+
   smoke-tests:
-    name: Smoke Tests - ${{ github.event.inputs.environment || 'dev' }}
+    name: Smoke Tests - ${{ needs.detect-environment.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: terraform-apply
-    permissions:
-      contents: read
+    needs: [terraform-apply, detect-environment]
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "1.9.0"
+          terraform_version: "1.15.7"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -190,20 +208,18 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: terraform init
 
       - name: Get ALB URL from Terraform output
         id: tf-output
-        working-directory: infrastructure/environments/${{ github.event.inputs.environment || 'dev' }}
+        working-directory: infrastructure/environments/${{ needs.detect-environment.outputs.environment }}
         run: |
           ALB_URL=$(terraform output -raw alb_dns_name 2>/dev/null || echo "")
           echo "alb_url=http://$ALB_URL" >> $GITHUB_OUTPUT
 
       - name: Wait for services to be ready
-        run: |
-          bash tests/wait-for-services.sh "${{ steps.tf-output.outputs.alb_url }}" 120
+        run: bash tests/wait-for-services.sh "${{ steps.tf-output.outputs.alb_url }}" 250
 
       - name: Run Smoke Tests
-        run: |
-          bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
+        run: bash tests/smoke-tests.sh "${{ steps.tf-output.outputs.alb_url }}"
