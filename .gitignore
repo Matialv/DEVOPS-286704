@@ -225,3 +225,12 @@ __marimo__/
 *.tfstate.*
 terraform.tfvars.json
 override.tf.json
+
+# Go binaries
+src/**/*.exe
+src/**/orders
+src/**/catalog
+
+# Node.js artifacts
+src/checkout/.yarn/install-state.gz
+src/checkout/node_modules/
