@@ -1,4 +1,4 @@
-ARG NODE_VERSION=22.14.0-alpine
+ARG NODE_VERSION=24-alpine
 
 # Stage 1: deps
 FROM node:${NODE_VERSION} AS deps

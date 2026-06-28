@@ -1,5 +1,5 @@
 # 1. Fijar versión menor exacta para evitar cambios de última hora en el CI
-ARG NODE_VERSION=22.14.0-alpine
+ARG NODE_VERSION=24-alpine
 
 # Stage 1: deps (solo producción)
 FROM node:${NODE_VERSION} AS deps

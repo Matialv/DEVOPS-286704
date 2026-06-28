@@ -1,4 +1,4 @@
-ARG GOLANG_VERSION=1.25.7-alpine
+ARG GOLANG_VERSION=1.26.4-alpine
 ARG DISTROLESS_VERSION=nonroot
 
 # Stage 1: build
