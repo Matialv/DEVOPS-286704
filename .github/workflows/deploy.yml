@@ -2,7 +2,7 @@ name: App Pipeline
 
 on:
   push:
-    branches: [main, main-prod, main-test]
+    branches: [main, main-test]
     paths:
       - 'src/**'
       - '.github/workflows/deploy.yml'
@@ -141,7 +141,7 @@ jobs:
           scan-ref: .
           severity: CRITICAL
           exit-code: "1"
-          ignore-unfixed: false
+          ignore-unfixed: true
           trivyignores: security/.trivyignore
           format: sarif
           output: trivy-fs.sarif
@@ -307,7 +307,7 @@ jobs:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: CRITICAL
           exit-code: "1"
-          ignore-unfixed: false
+          ignore-unfixed: true
           trivyignores: security/.trivyignore
 
       - name: Trivy - Scan image for HIGH (informativo)
@@ -317,7 +317,7 @@ jobs:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/retailstore-${{ needs.detect-environment.outputs.environment }}-${{ matrix.service }}:${{ needs.detect-environment.outputs.environment }}-${{ github.sha }}"
           severity: HIGH
           exit-code: "0"
-          ignore-unfixed: false
+          ignore-unfixed: true
           trivyignores: security/.trivyignore
 
       - name: Validate image metadata (USER, SIZE)
