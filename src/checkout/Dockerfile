@@ -4,11 +4,13 @@ ARG NODE_VERSION=22.14.0-alpine
 FROM node:${NODE_VERSION} AS deps
 WORKDIR /app
 
-RUN apk update && apk upgrade --no-cache && apk add --no-cache jq
+# CORRECCIÓN HADOLINT: Se fija la versión compatible de jq para Alpine de Node 22
+RUN apk update && apk upgrade --no-cache && apk add --no-cache "jq~=1.7"
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 
+# 🔥 CORRECCIÓN EN CALIENTE: Inyectar resoluciones y ELIMINAR el lockfile viejo para forzar el bypass de las 140 fallas
 RUN jq '.resolutions = { \
     "@grpc/grpc-js": "^1.12.0", \
     "protobufjs": "^7.4.0", \
@@ -18,7 +20,9 @@ RUN jq '.resolutions = { \
     "minimatch": "^9.0.5", \
     "qs": "^6.13.1", \
     "systeminformation": "^5.23.5" \
-  }' package.json > package.json.tmp && mv package.json.tmp package.json
+  }' package.json > package.json.tmp && \
+  mv package.json.tmp package.json && \
+  rm -f yarn.lock
 
 RUN npm install -g corepack@latest --force && \
     corepack enable && \
@@ -29,7 +33,8 @@ RUN npm install -g corepack@latest --force && \
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 
-RUN apk update && apk upgrade --no-cache && apk add --no-cache jq
+# CORRECCIÓN HADOLINT: Se fija la versión compatible de jq aquí también
+RUN apk update && apk upgrade --no-cache && apk add --no-cache "jq~=1.7"
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
@@ -37,6 +42,7 @@ COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 COPY --from=deps /app/node_modules ./node_modules
 
+# Repetimos el borrado del lockfile para garantizar consistencia en la compilación
 RUN jq '.resolutions = { \
     "@grpc/grpc-js": "^1.12.0", \
     "protobufjs": "^7.4.0", \
@@ -46,7 +52,9 @@ RUN jq '.resolutions = { \
     "minimatch": "^9.0.5", \
     "qs": "^6.13.1", \
     "systeminformation": "^5.23.5" \
-  }' package.json > package.json.tmp && mv package.json.tmp package.json
+  }' package.json > package.json.tmp && \
+  mv package.json.tmp package.json && \
+  rm -f yarn.lock
 
 RUN npm install -g corepack@latest --force && \
     corepack enable && \
@@ -59,10 +67,9 @@ WORKDIR /app
 
 RUN apk update && apk upgrade --no-cache
 
-# 🔥 CUMPLIMIENTO DE SEGURIDAD: Usuario y grupo de sistema personalizados (No root, no appuser)
+# CUMPLIMIENTO: Usuario y grupo de sistema personalizados (No root, no appuser)
 RUN addgroup -S checkoutgroup && adduser -S checkoutuser -G checkoutgroup
 
-# Copiar artefactos asignando la propiedad al usuario personalizado
 COPY --from=builder --chown=checkoutuser:checkoutgroup /app/dist ./dist
 COPY --from=deps --chown=checkoutuser:checkoutgroup /app/node_modules ./node_modules
 
