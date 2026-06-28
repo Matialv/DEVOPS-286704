@@ -2,7 +2,7 @@ name: Infra Pipeline
 
 on:
   push:
-    branches: [main, main-prod, main-test]
+    branches: [main, main-test]
     paths:
       - 'infrastructure/**'
   pull_request:
