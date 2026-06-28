@@ -55,6 +55,39 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
+      # ── NUEVO: Conteo de Tareas Activas (Control de 6 tareas) ──
+      {
+        type   = "metric"
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ECS Tareas Activas (Target: 6) - ${var.environment}"
+          region = data.aws_region.current.name
+          view   = "timeSeries"
+          period = 60
+          stat   = "SampleCount"
+          metrics = [
+            for svc in local.services : [
+              "AWS/ECS",
+              "RunningTaskCount",
+              "ClusterName", var.ecs_cluster_name,
+              "ServiceName", "${var.ecs_cluster_name}-${svc}",
+              { label = svc }
+            ]
+          ]
+          yAxis = {
+            left = { min = 0, max = 8 }
+          }
+          annotations = {
+            horizontal = [{
+              color = "#ff7f0e"
+              label = "Línea Base Requerida (6 Tareas)"
+              value = 6
+              fill  = "below"
+            }]
+          }
+        }
+      },
       # ── ALB Request Count ──
       {
         type   = "metric"
@@ -89,24 +122,19 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
-      # ── Healthy / Unhealthy hosts ──
+      # ── Healthy / Unhealthy hosts Dinámico (Corregido con SEARCH) ──
       {
         type   = "metric"
-        width  = 24
-        height = 4
+        width  = 12
+        height = 6
         properties = {
-          title  = "ALB Healthy vs Unhealthy Hosts"
+          title  = "ALB Hosts de Microservicios (Salud)"
           region = data.aws_region.current.name
-          view   = "singleValue"
+          view   = "timeSeries"
           period = 60
-          stat   = "Average"
           metrics = [
-            for svc in local.services : [
-              "AWS/ApplicationELB",
-              "HealthyHostCount",
-              "LoadBalancer", var.alb_arn_suffix,
-              { label = "${svc} healthy" }
-            ]
+            [ { "expression": "SEARCH('{AWS/ApplicationELB,LoadBalancer,TargetGroup} MetricName=\"UnHealthyHostCount\" AND LoadBalancer=\"${var.alb_arn_suffix}\"', 'Maximum', 60)", "id": "unhealthy", "label": "Unhealthy por TG" } ],
+            [ { "expression": "SEARCH('{AWS/ApplicationELB,LoadBalancer,TargetGroup} MetricName=\"HealthyHostCount\" AND LoadBalancer=\"${var.alb_arn_suffix}\"', 'Average', 60)", "id": "healthy", "label": "Healthy por TG" } ]
           ]
         }
       }
@@ -156,7 +184,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
-    ServiceName = "retailstore-${var.environment}-${each.key}"
+    ServiceName = "${var.ecs_cluster_name}-${each.key}"
   }
 
   alarm_actions = [var.sns_topic_arn]
