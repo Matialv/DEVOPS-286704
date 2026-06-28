@@ -225,3 +225,8 @@ __marimo__/
 *.tfstate.*
 terraform.tfvars.json
 override.tf.json
+
+# Go binaries
+src/**/*.exe
+src/**/orders
+src/**/catalog

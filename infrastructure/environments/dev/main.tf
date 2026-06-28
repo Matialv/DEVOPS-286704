@@ -73,10 +73,12 @@ module "lambda" {
 }
 
 module "observability" {
-  source          = "../../modules/observability"
-  environment     = var.environment
-  sns_topic_arn   = module.lambda.sns_topic_arn
-  alb_arn_suffix  = module.ecs.alb_arn_suffix
+  source           = "../../modules/observability"
+  environment      = var.environment
+  sns_topic_arn    = module.lambda.sns_topic_arn
+  alb_arn_suffix   = module.ecs.alb_arn_suffix
   ecs_cluster_name = module.ecs.cluster_name
-  tags            = local.common_tags
+  rds_instance_id  = module.rds.db_instance_id
+  redis_cluster_id = module.elasticache.redis_cluster_id
+  tags             = local.common_tags
 }

@@ -192,9 +192,23 @@ jobs:
           SECRET_NAME="retailstore/${ENV}/db-credentials"
           if [ -n "$DB_HOST" ]; then
             EXISTING_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query 'SecretString' --output text)
-            NEW_SECRET=$(echo "$EXISTING_SECRET" | jq --arg host "$DB_HOST" '.host = $host')
+            NEW_SECRET=$(echo "$EXISTING_SECRET" | jq --arg host "$DB_HOST" --arg endpoint "${DB_HOST}:5432" '.host = $host | .endpoint = $endpoint')
             aws secretsmanager update-secret --secret-id "$SECRET_NAME" --secret-string "$NEW_SECRET" --region us-east-1
           fi
+
+      - name: Force redeploy DB-dependent services
+        env:
+          ENV: ${{ needs.detect-environment.outputs.environment }}
+        run: |
+          CLUSTER="retailstore-${ENV}"
+          for SVC in catalog orders cart admin; do
+            aws ecs update-service \
+              --cluster "$CLUSTER" \
+              --service "retailstore-${ENV}-${SVC}" \
+              --force-new-deployment \
+              --region us-east-1 \
+              --no-cli-pager > /dev/null 2>&1 || true
+          done
 
   smoke-tests:
     name: Smoke Tests - ${{ needs.detect-environment.outputs.environment }}
