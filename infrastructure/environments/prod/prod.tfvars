@@ -5,4 +5,4 @@ rds_instance_class = "db.t3.medium"
 multi_az           = true
 redis_node_type    = "cache.t3.medium"
 sns_email          = "matialv15@gmail.com"
-image_tag          = "prod-8cb3b246dfa9fef93d2670d1d47d1a7f4d487fe1"
+image_tag          = "prod-e454cd68f79c305d6b54d5c6a1227f6c1cebbb14"
