@@ -5,6 +5,7 @@ Obligatorio de DEVOPS ATI / ORT 2026
 
 **RetailStore** es una plataforma de comercio electrónico basada en **microservicios**, desplegada en AWS mediante una pipeline CI/CD completa con seguridad integrada (DevSecOps). Este documento describe la arquitectura de la aplicación, la infraestructura en AWS, las condiciones de deploy y el funcionamiento de los pipelines de GitHub Actions.
 
+repositorio final https://github.com/Matialv/DEVOPS-286704.git
 ---
 
 ## Tabla de Contenidos
