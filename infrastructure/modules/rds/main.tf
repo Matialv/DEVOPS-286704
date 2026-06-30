@@ -16,6 +16,7 @@ resource "aws_secretsmanager_secret_version" "db" {
     password = random_password.db.result
     dbname   = var.db_name
     host     = aws_db_instance.main.address
+    endpoint = "${aws_db_instance.main.address}:5432"
     port     = 5432
   })
 }

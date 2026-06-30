@@ -1,20 +1,19 @@
-# Stage 1: deps (solo produccion)
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Stage 2: build
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
-COPY package.json tsconfig.json ./
-RUN npm install
+COPY package.json package-lock.json tsconfig.json ./
+RUN npm ci
 COPY src ./src
 COPY public ./public
 RUN npm run build
 
 # Stage 3: runtime
-FROM node:22-alpine
+FROM node:24-alpine
 WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist

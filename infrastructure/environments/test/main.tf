@@ -78,6 +78,8 @@ module "observability" {
   sns_topic_arn    = module.lambda.sns_topic_arn
   alb_arn_suffix   = module.ecs.alb_arn_suffix
   ecs_cluster_name = module.ecs.cluster_name
+  rds_instance_id  = module.rds.db_instance_id
+  redis_cluster_id = module.elasticache.redis_cluster_id
   tags             = local.common_tags
 }
 

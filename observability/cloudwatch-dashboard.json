@@ -1,22 +1,33 @@
 {
-  "_comment": "Reference copy — dashboard is managed by Terraform in infrastructure/modules/observability/main.tf",
+  "variables": [
+    {
+      "type": "property",
+      "name": "env",
+      "defaultValue": "prod",
+      "values": [
+        "prod",
+        "dev",
+        "test"
+      ]
+    }
+  ],
   "widgets": [
     {
       "type": "metric",
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "ECS CPU Utilization por servicio",
+        "title": "ECS CPU Utilization - retailstore-${env}",
         "view": "timeSeries",
         "period": 300,
         "stat": "Average",
         "metrics": [
-          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-catalog"],
-          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-cart"],
-          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-checkout"],
-          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-orders"],
-          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-ui"],
-          ["AWS/ECS", "CPUUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-admin"]
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-catalog"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-cart"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-checkout"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-orders"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-ui"],
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-admin"]
         ]
       }
     },
@@ -25,47 +36,68 @@
       "width": 12,
       "height": 6,
       "properties": {
-        "title": "ALB Request Count + 5xx Errors",
+        "title": "ECS Memory Utilization - retailstore-${env}",
+        "view": "timeSeries",
+        "period": 300,
+        "stat": "Average",
+        "metrics": [
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-catalog"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-cart"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-checkout"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-orders"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-ui"],
+          ["AWS/ECS", "MemoryUtilization", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-admin"]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "Conteo de Tareas Activas (Target: 6) - retailstore-${env}",
+        "view": "timeSeries",
+        "period": 60,
+        "stat": "SampleCount",
+        "metrics": [
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-catalog"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-cart"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-checkout"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-orders"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-ui"],
+          ["AWS/ECS", "RunningTaskCount", "ClusterName", "retailstore-${env}", "ServiceName", "retailstore-${env}-admin"]
+        ],
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 8
+          }
+        },
+        "annotations": {
+          "horizontal": [
+            {
+              "color": "#ff7f0e",
+              "label": "Línea Base Operativa (6 Tareas)",
+              "value": 6,
+              "fill": "below"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB Request Count & Errors - retailstore-${env}",
         "view": "timeSeries",
         "period": 60,
         "stat": "Sum",
         "metrics": [
-          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "<alb-arn-suffix>"],
-          ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "<alb-arn-suffix>"],
-          ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", "<alb-arn-suffix>"]
-        ]
-      }
-    },
-    {
-      "type": "metric",
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "title": "ALB Latencia p99 (segundos)",
-        "view": "timeSeries",
-        "period": 60,
-        "stat": "p99",
-        "metrics": [
-          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "<alb-arn-suffix>"]
-        ]
-      }
-    },
-    {
-      "type": "metric",
-      "width": 12,
-      "height": 6,
-      "properties": {
-        "title": "ECS Memory Utilization por servicio",
-        "view": "timeSeries",
-        "period": 300,
-        "stat": "Average",
-        "metrics": [
-          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-catalog"],
-          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-cart"],
-          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-checkout"],
-          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-orders"],
-          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-ui"],
-          ["AWS/ECS", "MemoryUtilization", "ClusterName", "<cluster>", "ServiceName", "<cluster>-admin"]
+          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/retailstore-${env}-alb/<arn-sufijo>"],
+          ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "app/retailstore-${env}-alb/<arn-sufijo>"],
+          ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", "app/retailstore-${env}-alb/<arn-sufijo>"]
         ]
       }
     }

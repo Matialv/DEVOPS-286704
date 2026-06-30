@@ -1,6 +1,6 @@
 # Guía: Configuración de Branch Protection y GitHub Environments
 
-Pasos de configuración en la GitHub UI para hacer cumplir la estrategia de ramas definida en el ADR 001.
+Pasos de configuración en la GitHub UI para hacer cumplir la estrategia de ramas definida.
 
 ---
 

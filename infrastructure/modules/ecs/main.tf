@@ -1,4 +1,4 @@
-data "aws_iam_role" "labrole" {
+  data "aws_iam_role" "labrole" {
   name = "LabRole"
 }
 
@@ -116,34 +116,8 @@ resource "aws_ecs_task_definition" "services" {
           value = "postgres"
         },
         {
-          name  = "RETAIL_CATALOG_PERSISTENCE_ENDPOINT"
-          value = "${jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host}:5432"
-        },
-        {
-          name  = "RETAIL_CATALOG_PERSISTENCE_DB_NAME"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
-        },
-        {
-          name  = "RETAIL_CATALOG_PERSISTENCE_USER"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
-        },
-        {
           name  = "RETAIL_CATALOG_PERSISTENCE_CONNECT_TIMEOUT"
           value = "5"
-        }
-      ] : [],
-      each.key == "orders" ? [
-        {
-          name  = "RETAIL_ORDERS_PERSISTENCE_ENDPOINT"
-          value = "${jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host}:5432"
-        },
-        {
-          name  = "RETAIL_ORDERS_PERSISTENCE_USERNAME"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
-        },
-        {
-          name  = "RETAIL_ORDERS_PERSISTENCE_NAME"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
         }
       ] : [],
       each.key == "cart" ? [
@@ -152,20 +126,8 @@ resource "aws_ecs_task_definition" "services" {
           value = "postgres"
         },
         {
-          name  = "CART_POSTGRES_HOST"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host
-        },
-        {
           name  = "CART_POSTGRES_PORT"
           value = "5432"
-        },
-        {
-          name  = "CART_POSTGRES_DB"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
-        },
-        {
-          name  = "CART_POSTGRES_USER"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
         }
       ] : [],
       each.key == "checkout" ? [
@@ -202,20 +164,8 @@ resource "aws_ecs_task_definition" "services" {
       ] : [],
       each.key == "admin" ? [
         {
-          name  = "DB_HOST"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).host
-        },
-        {
           name  = "DB_PORT"
           value = "5432"
-        },
-        {
-          name  = "DB_USER"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).username
-        },
-        {
-          name  = "DB_NAME"
-          value = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string).dbname
         }
       ] : []
     )
@@ -229,11 +179,35 @@ resource "aws_ecs_task_definition" "services" {
       ],
       each.key == "catalog" ? [
         {
+          name      = "RETAIL_CATALOG_PERSISTENCE_ENDPOINT"
+          valueFrom = "${var.db_secret_arn}:endpoint::"
+        },
+        {
+          name      = "RETAIL_CATALOG_PERSISTENCE_DB_NAME"
+          valueFrom = "${var.db_secret_arn}:dbname::"
+        },
+        {
+          name      = "RETAIL_CATALOG_PERSISTENCE_USER"
+          valueFrom = "${var.db_secret_arn}:username::"
+        },
+        {
           name      = "RETAIL_CATALOG_PERSISTENCE_PASSWORD"
           valueFrom = "${var.db_secret_arn}:password::"
         }
       ] : [],
       each.key == "orders" ? [
+        {
+          name      = "RETAIL_ORDERS_PERSISTENCE_ENDPOINT"
+          valueFrom = "${var.db_secret_arn}:endpoint::"
+        },
+        {
+          name      = "RETAIL_ORDERS_PERSISTENCE_NAME"
+          valueFrom = "${var.db_secret_arn}:dbname::"
+        },
+        {
+          name      = "RETAIL_ORDERS_PERSISTENCE_USERNAME"
+          valueFrom = "${var.db_secret_arn}:username::"
+        },
         {
           name      = "RETAIL_ORDERS_PERSISTENCE_PASSWORD"
           valueFrom = "${var.db_secret_arn}:password::"
@@ -241,11 +215,35 @@ resource "aws_ecs_task_definition" "services" {
       ] : [],
       each.key == "cart" ? [
         {
+          name      = "CART_POSTGRES_HOST"
+          valueFrom = "${var.db_secret_arn}:host::"
+        },
+        {
+          name      = "CART_POSTGRES_DB"
+          valueFrom = "${var.db_secret_arn}:dbname::"
+        },
+        {
+          name      = "CART_POSTGRES_USER"
+          valueFrom = "${var.db_secret_arn}:username::"
+        },
+        {
           name      = "CART_POSTGRES_PASSWORD"
           valueFrom = "${var.db_secret_arn}:password::"
         }
       ] : [],
       each.key == "admin" ? [
+        {
+          name      = "DB_HOST"
+          valueFrom = "${var.db_secret_arn}:host::"
+        },
+        {
+          name      = "DB_USER"
+          valueFrom = "${var.db_secret_arn}:username::"
+        },
+        {
+          name      = "DB_NAME"
+          valueFrom = "${var.db_secret_arn}:dbname::"
+        },
         {
           name      = "DB_PASSWORD"
           valueFrom = "${var.db_secret_arn}:password::"
