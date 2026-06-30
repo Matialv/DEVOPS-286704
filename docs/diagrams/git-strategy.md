@@ -49,7 +49,7 @@ feature/* ──(PR + review)──► main ──(push automático)──► de
 | Corrección urgente | `hotfix/<descripción>` | `hotfix/cart-500-fix` |
 | Experimento | `spike/<descripción>` | `spike/redis-session-poc` |
 
-## Reglas de protección en `main`
+## Reglas de protección en `main-prod`
 
 Configuradas en GitHub → Settings → Branches (ver [guía de configuración](../runbooks/branch-protection-setup.md)):
 
